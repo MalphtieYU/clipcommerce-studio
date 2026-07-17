@@ -28,6 +28,8 @@ reports/
 *.csv
 *.xlsx
 *.xls
+!templates/import/*.xlsx
+*.inspect.ndjson
 *.mp4
 *.mov
 *.avi
