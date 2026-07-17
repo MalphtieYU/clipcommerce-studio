@@ -1,122 +1,66 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useMemo, useState } from 'react'
+import { BarChart3, BookOpen, ChevronRight, ClipboardCheck, FileUp, FileVideo, Goal, LayoutDashboard, LineChart, Play, Plus, RefreshCcw, Search, Settings2, ShieldAlert, Sparkles, TableProperties } from 'lucide-react'
+import { analysisSeries, assets, contentSegments, goals, metricDefinitions, products, reportSections } from './data/demo'
+import { validateImportFile } from './lib/importValidation'
+import { EmptyState, EvidenceBadge, Metric, Notice, StatusBadge } from './components/ui'
 import './App.css'
 
+type Page = 'dashboard' | 'goals' | 'products' | 'assets' | 'import' | 'analysis' | 'review' | 'report' | 'metrics' | 'asset-detail'
+
+const nav: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: 'dashboard', label: '工作驾驶舱', icon: LayoutDashboard },
+  { id: 'goals', label: '经营目标', icon: Goal },
+  { id: 'products', label: '产品知识', icon: BookOpen },
+  { id: 'assets', label: '素材资产', icon: FileVideo },
+  { id: 'import', label: '数据导入', icon: FileUp },
+  { id: 'analysis', label: '表现分析', icon: BarChart3 },
+  { id: 'review', label: '素材复盘', icon: ClipboardCheck },
+  { id: 'report', label: '周会报告', icon: TableProperties },
+  { id: 'metrics', label: '指标口径', icon: Settings2 },
+]
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [page, setPage] = useState<Page>('dashboard')
+  const [selectedAsset, setSelectedAsset] = useState(assets[0])
+  const [query, setQuery] = useState('')
+  const [fileMessage, setFileMessage] = useState<string | null>(null)
+  const [selectedSecond, setSelectedSecond] = useState(6)
+  const filteredAssets = useMemo(() => assets.filter((asset) => `${asset.name} ${asset.code} ${asset.channel}`.toLowerCase().includes(query.toLowerCase())), [query])
+  const goAsset = (asset = selectedAsset) => { setSelectedAsset(asset); setPage('asset-detail') }
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+  return <div className="app-shell">
+    <aside className="sidebar"><div className="brand"><Sparkles size={19} /><span>SleepFlow</span><small>内部工作站</small></div><div className="demo-flag">演示数据 · 本地模式</div><nav>{nav.map(({ id, label, icon: Icon }) => <button key={id} className={page === id ? 'active' : ''} onClick={() => setPage(id)}><Icon size={17} />{label}</button>)}</nav><div className="sidebar-foot"><ShieldAlert size={15} />不连接渠道后台</div></aside>
+    <main><header className="toolbar"><label><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索素材、产品或目标" /></label><div className="toolbar-meta"><EvidenceBadge /><StatusBadge status="本地运行" /></div></header>
+      <section className="workarea">{page === 'dashboard' && <Dashboard onNavigate={setPage} onAsset={() => goAsset()} />}{page === 'goals' && <Goals />}{page === 'products' && <Products />}{page === 'assets' && <Assets rows={filteredAssets} onAsset={goAsset} />}{page === 'import' && <ImportCenter fileMessage={fileMessage} onFile={(file) => setFileMessage(validateImportFile(file).map((check) => check.message).join(' '))} />}{page === 'analysis' && <Analysis onAsset={() => goAsset()} />}{page === 'review' && <Review />}{page === 'report' && <WeeklyReport />}{page === 'metrics' && <Metrics />}{page === 'asset-detail' && <AssetDetail asset={selectedAsset} second={selectedSecond} setSecond={setSelectedSecond} />}</section>
+    </main>
+  </div>
 }
 
+const PageHeader = ({ title, subtitle, actions }: { title: string; subtitle: string; actions?: React.ReactNode }) => <div className="page-head"><div><h1>{title}</h1><p>{subtitle}</p></div>{actions}</div>
+
+function Dashboard({ onNavigate, onAsset }: { onNavigate: (page: Page) => void; onAsset: () => void }) {
+  return <><PageHeader title="工作驾驶舱" subtitle="聚合今天需要推进的内容、数据与复盘工作，不代替业务判断。" actions={<button className="primary" onClick={() => onNavigate('import')}><FileUp size={16} />导入数据</button>} /><div className="metric-grid"><Metric label="待处理任务" value="06" tone="cyan" /><Metric label="等待导入" value="02" tone="orange" /><Metric label="高潜素材" value="08" tone="green" /><Metric label="口径待确认" value="03" tone="orange" /></div><div className="dashboard-grid"><section className="panel"><h2>今日重点</h2>{['补充产品核验资料','确认导入字段映射','复盘待观察素材'].map((task, index) => <div className="task" key={task}><b>0{index + 1}</b><span>{task}</span><StatusBadge status="待确认" /></div>)}</section><section className="panel media-rail"><h2>高潜素材与版本</h2><div>{assets.slice(0, 3).map((asset) => <button className="asset-thumb" key={asset.id} onClick={onAsset}><i /><strong>{asset.code}</strong><span>{asset.version} · {asset.status}</span></button>)}</div></section></div><section className="panel table-panel"><h2>日常观察 <small>非完整周报</small></h2><AssetTable rows={assets.slice(0, 5)} onAsset={onAsset} /></section></>
+}
+
+function Goals() { return <><PageHeader title="经营目标与进度" subtitle="月度、周度与每日进度；数值缺失会明确显示，不能被解释为零。" actions={<button className="primary"><Plus size={16} />新建目标</button>} /><div className="segmented">{['全部目标','素材产量','GMV','消耗','ROI','拍摄'].map((item, index) => <button className={index === 0 ? 'selected' : ''} key={item}>{item}</button>)}</div><div className="goals-layout"><section className="panel table-panel"><h2>目标进度表</h2><table><thead><tr><th>目标</th><th>周期</th><th>完成率</th><th>状态</th><th>来源</th><th /></tr></thead><tbody>{goals.map((goal) => <tr key={goal.id}><td><strong>{goal.name}</strong><small>{goal.category}</small></td><td>{goal.period}</td><td>{goal.progress === null ? <span className="missing">— 缺少数据</span> : <div className="progress"><i style={{ width: `${goal.progress * 100}%` }} />{Math.round(goal.progress * 100)}%</div>}</td><td><StatusBadge status={goal.status} /></td><td><EvidenceBadge source={goal.source} /></td><td><button className="link">详情 <ChevronRight size={14} /></button></td></tr>)}</tbody></table></section><aside className="panel right-rail"><h2>趋势与异常</h2><p>选择目标后查看每日进度、数据来源、异常与人工备注。</p><MiniBars /><Notice>日期可横向查看；1024px 时本面板将以抽屉呈现。</Notice></aside></div></> }
+
+function Products() { return <><PageHeader title="产品知识中心" subtitle="产品资料与表达规则必须可核验；未确认信息不会当作真实卖点。" actions={<button className="primary"><Plus size={16} />新增产品</button>} /><div className="products-layout"><section className="panel product-list"><h2>产品档案</h2>{products.map((product, index) => <button key={product.id} className={index === 0 ? 'product-selected' : ''}><strong>{product.name}</strong><span>{product.status}</span><EvidenceBadge source={product.source} /></button>)}</section><section className="panel product-detail"><h2>{products[0].name}</h2><EvidenceBadge /><div className="claim-list">{products[0].claims.map((claim, index) => <div key={claim}><StatusBadge status={index === 0 ? '已确认' : index === 1 ? '待确认' : '禁止使用'} /><p>{claim}</p></div>)}</div><EmptyState title="附件待补充" detail="不使用真实图片、视频或内部文档作为演示素材。" /></section></div></> }
+
+function Assets({ rows, onAsset }: { rows: typeof assets; onAsset: (asset: typeof assets[number]) => void }) { return <><PageHeader title="素材资产库" subtitle="以版本、内容标签、渠道和经营数据连接素材生产与复盘。" actions={<button className="primary"><Plus size={16} />新增素材</button>} /><div className="asset-toolbar"><div className="segmented"><button className="selected">网格</button><button>列表</button></div><button className="outline"><Settings2 size={15} />筛选</button></div>{rows.length ? <div className="asset-grid">{rows.map((asset) => <button className="asset-card" key={asset.id} onClick={() => onAsset(asset)}><i /><div><StatusBadge status={asset.status} /><strong>{asset.name}</strong><span>{asset.code} · {asset.version}</span><small>{asset.channel} · {asset.duration}s · {asset.tag}</small><EvidenceBadge source={asset.source} status={asset.metricStatus} /></div></button>)}</div> : <EmptyState title="没有匹配素材" detail="尝试修改搜索或导入匿名演示数据。" />}</> }
+
+function ImportCenter({ onFile, fileMessage }: { onFile: (file: File) => void; fileMessage: string | null }) { return <><PageHeader title="数据导入中心" subtitle="上传 → 预览 → 映射 → 口径确认 → 校验 → 人工确认 → 写入；导入批次可撤销。" /><div className="steps">{['上传','预览','字段映射','口径确认','数据校验','人工确认','导入报告'].map((step, index) => <div key={step} className={index === 0 ? 'current' : ''}><b>{index + 1}</b>{step}</div>)}</div><section className="panel import-zone"><FileUp size={30} /><h2>导入本地文件</h2><p>支持 CSV、XLSX、XLS、JSON；不上传到未确认第三方。</p><input aria-label="选择导入文件" type="file" accept=".csv,.xlsx,.xls,.json" onChange={(event) => event.target.files?.[0] && onFile(event.target.files[0])} />{fileMessage && <Notice>{fileMessage}</Notice>}</section><section className="panel table-panel"><h2>导入安全与数据质量</h2><ul className="check-list"><li>文件类型、大小、公式注入前缀</li><li>素材编号、版本、渠道与周期匹配</li><li>真实 0、空值、未产生、不适用分开显示</li><li>导入前预览；确认后生成可撤销批次</li></ul></section></> }
+
+function Analysis({ onAsset }: { onAsset: () => void }) { return <><PageHeader title="表现分析中心" subtitle="按时间、渠道、产品、素材标签与投放条件进行比较；不同口径不可直接比较。" /><Notice>当前为匿名演示数据。阈值、口径与样本条件均待内部确认。</Notice><div className="metric-grid"><Metric label="CTR" value="—" /><Metric label="CVR" value="—" /><Metric label="GMV" value="—" /><Metric label="ROI" value="—" /></div><div className="analysis-grid"><section className="panel"><h2>CTR × CVR 象限</h2><div className="quadrant"><span>高点击 · 高转化</span><span>高点击 · 低转化</span><span>低点击 · 高转化</span><span>低点击 · 低转化</span><i className="dot one" /><i className="dot two" /><i className="dot three" /><i className="dot four" /></div></section><section className="panel"><h2>素材对比</h2><AssetTable rows={assets.slice(0, 4)} onAsset={onAsset} /></section></div></> }
+
+function Review() { return <><PageHeader title="素材复盘" subtitle="将事实、内容观察、待验证假设与下一版动作分开，避免营销式确定性结论。" /><div className="review-grid"><section className="panel"><h2>数据事实与证据</h2><EvidenceBadge /><div className="insight fact"><b>数据事实</b><p>演示数据未形成可用的业务结论。</p></div><div className="insight hypothesis"><b>待验证假设</b><p>需要结合内容段、样本与投放条件后由人工确认。</p></div></section><section className="panel"><h2>下一版修改计划</h2>{['保留内容','更换开头','加强 CTA','继续投流观察'].map((action) => <button className="review-action" key={action}><RefreshCcw size={16} />{action}<StatusBadge status="待确认" /></button>)}</section></div></> }
+
+function WeeklyReport() { return <><PageHeader title="周会报告" subtitle="周报不是日数据累加：它连接目标、素材生产、渠道经营、内容行为与下一周动作。" actions={<button className="outline">导出前检查敏感字段</button>} /><div className="report-layout">{reportSections.map((section, index) => <section className="panel report-section" key={section}><span>0{index + 1}</span><div><h2>{section}</h2><p>{index === 0 ? '月度进度、周度完成、每日趋势、目标差额和风险项。' : '演示数据 · 需要补充数据来源、口径状态和人工结论。'}</p></div><StatusBadge status={index === 4 ? '数据不足' : '待确认'} /></section>)}</div></> }
+
+function Metrics() { return <><PageHeader title="指标口径中心" subtitle="将渠道原始字段、计算方式、时间范围与版本集中管理；口径不同不直接比较。" actions={<button className="primary"><Plus size={16} />新增口径</button>} /><section className="panel table-panel"><table><thead><tr><th>指标</th><th>渠道</th><th>状态</th><th>来源</th><th>说明</th></tr></thead><tbody>{metricDefinitions.map((metric) => <tr key={metric.name}><td><strong>{metric.name}</strong></td><td>{metric.channel}</td><td><StatusBadge status={metric.status} /></td><td><EvidenceBadge source={metric.source} /></td><td>{metric.note}</td></tr>)}</tbody></table></section></> }
+
+function AssetDetail({ asset, second, setSecond }: { asset: typeof assets[number]; second: number; setSecond: (second: number) => void }) { const max = Math.max(...analysisSeries); return <><PageHeader title="内容与经营分析工作台" subtitle={`${asset.code} · ${asset.channel} · ${asset.duration}s · ${asset.dataPeriod}`} /><section className="asset-hero panel"><div className="video-preview"><Play size={28} /><span>匿名素材预览</span></div><div><StatusBadge status={asset.status} /><h2>{asset.name}</h2><p>产品：{asset.product} · 版本：{asset.version} · 创建时间：演示数据</p><EvidenceBadge source={asset.source} status={asset.metricStatus} /></div></section><div className="metric-grid"><Metric label="订单" value="—" /><Metric label="GMV" value="—" /><Metric label="消耗" value="—" /><Metric label="支付 ROI" value="—" /></div><section className="panel timeline-workbench"><div className="timeline-head"><div><h2>视频逐秒分析</h2><p>一次选择 1–2 个指标；当前显示演示互动曲线。</p></div><div className="segmented"><button className="selected">点击</button><button>流失</button><button>留存</button></div></div><div className="chart-row"><div className="chart">{analysisSeries.map((value, index) => <button aria-label={`第 ${index + 1} 秒`} className={index === second ? 'selected' : ''} key={index} onClick={() => setSecond(index)} style={{ height: `${(value / max) * 160}px` }} />)}</div><aside><StatusBadge status={second === 6 ? '峰值' : second === 14 ? '流失点' : '待确认'} /><h3>第 {second + 1} 秒</h3><p>当前画面、内容段、卖点与行为数据均为演示占位，需导入真实来源后人工核验。</p><EvidenceBadge /></aside></div><div className="segment-track">{contentSegments.map((segment) => <button className={segment.tone} key={segment.type} style={{ flex: segment.end - segment.start }}>{segment.label}<small>{segment.start}s–{segment.end}s</small></button>)}</div></section><div className="analysis-detail-grid"><section className="panel"><h2>AI 诊断</h2><div className="diagnosis"><b>数据事实</b><p>暂无足够样本。</p><b>可能原因</b><p>待验证，不能推断因果。</p><b>下一版建议</b><p>需人工确认后才可形成版本草稿。</p></div></section><section className="panel"><h2>版本迭代</h2><EmptyState title="尚未创建新版本草稿" detail="将诊断转为保留、替换、提前或加强等人工动作后创建。" /></section></div></> }
+
+function AssetTable({ rows, onAsset }: { rows: typeof assets; onAsset: () => void }) { return <table><thead><tr><th>素材</th><th>渠道</th><th>状态</th><th>数据周期</th><th>操作</th></tr></thead><tbody>{rows.map((asset) => <tr key={asset.id}><td><strong>{asset.name}</strong><small>{asset.code} · {asset.version}</small></td><td>{asset.channel}</td><td><StatusBadge status={asset.status} /></td><td><EvidenceBadge source={asset.dataPeriod} status={asset.metricStatus} /></td><td><button className="link" onClick={onAsset}>分析 <LineChart size={14} /></button></td></tr>)}</tbody></table> }
+
+function MiniBars() { return <div className="mini-bars">{[45, 67, 38, 75, 54, 80, 44].map((height, index) => <i style={{ height }} key={index} />)}</div> }
 export default App
