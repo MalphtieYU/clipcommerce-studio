@@ -1,5 +1,6 @@
-:root { font-family: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif; color: #142134; background: #eef2f6; font-synthesis: none; }
+:root { font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", "Source Han Sans SC", system-ui, sans-serif; color: #142134; background: #eef2f6; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 1024px; min-height: 100vh; }
-button, input { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(39,107,222,.24); outline-offset: 2px; }

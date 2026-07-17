@@ -16,11 +16,11 @@ dist-ssr
 !.env.example
 
 # Internal workstation data and generated media must remain local.
-data/
-uploads/
-exports/
-storage/
-reports/
+/data/
+/uploads/
+/exports/
+/storage/
+/reports/
 *.db
 *.db-journal
 *.sqlite

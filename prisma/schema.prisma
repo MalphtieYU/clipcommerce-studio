@@ -184,9 +184,11 @@ model Product {
   confirmedClaims Json?
   pendingClaims   Json?
   prohibitedClaims Json?
+  colors          Json?
   sourceNote      String?
   verifiedAt      DateTime?
   verifiedBy      String?
+  archivedAt      DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   assets          Asset[]
@@ -286,6 +288,7 @@ model Asset {
   externalMaterialId  String?      @unique
   assetCode           String       @unique
   originalFilename    String?
+  localFileReference  String?
   displayName         String
   thumbnailUrl        String?
   durationSeconds     Int?
