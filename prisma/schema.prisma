@@ -1,0 +1,525 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ChannelCode {
+  DOUYIN
+  TMALL
+  JD
+}
+
+enum RecordStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  PENDING_CONFIRMATION
+}
+
+enum GoalCategory {
+  ASSET_OUTPUT
+  GMV
+  SPEND
+  ROI
+  NEW_ASSET_GMV
+  SHOOT_COUNT
+  CREATOR_VIDEO
+  CUSTOM
+}
+
+enum PeriodType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum GoalPriority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum GoalStatus {
+  ON_TRACK
+  AT_RISK
+  BLOCKED
+  COMPLETE
+  PAUSED
+}
+
+enum AssetStatus {
+  DRAFT
+  PENDING_EDIT
+  PENDING_PUBLISH
+  PUBLISHED
+  PROMOTING
+  OBSERVING
+  REPLICABLE
+  OPTIMIZE
+  PAUSED
+  RETIRED
+  INSUFFICIENT_DATA
+}
+
+enum SourceType {
+  ORIGINAL
+  ITERATION
+  CREATOR
+  AI_ASSISTED
+  REEDIT
+  IMPORTED
+}
+
+enum FirstLaunchStatus {
+  UNKNOWN
+  FIRST_LAUNCH
+  NOT_FIRST_LAUNCH
+}
+
+enum IncrementalStatus {
+  UNKNOWN
+  INCREMENTAL
+  NOT_INCREMENTAL
+}
+
+enum MetricStatus {
+  CONFIRMED
+  PENDING_CONFIRMATION
+  HISTORICAL
+  RETIRED
+}
+
+enum ImportStatus {
+  UPLOADED
+  MAPPED
+  VALIDATED
+  CONFIRMED
+  IMPORTED
+  UNDONE
+  FAILED
+}
+
+enum InteractionMetricType {
+  OVERALL_CLICK
+  OVERALL_DROP
+  LIKE
+  COMMENT
+  SHARE
+  NEW_FOLLOWER
+  RETENTION
+  PRODUCT_CLICK
+  CUSTOM
+}
+
+enum SegmentType {
+  HOOK
+  PAIN_POINT
+  SCENARIO
+  PRODUCT_INTRODUCTION
+  PRODUCT_DEMONSTRATION
+  SELLING_POINT
+  PROOF
+  COMPARISON
+  BENEFIT
+  CTA
+  ENDING
+  OTHER
+}
+
+enum EvidenceStatus {
+  CONFIRMED
+  PENDING
+  INSUFFICIENT
+}
+
+enum InsightType {
+  DATA_FACT
+  CONTENT_OBSERVATION
+  POSSIBLE_CAUSE
+  HYPOTHESIS
+  NEXT_ACTION
+  LIMITATION
+}
+
+enum ReviewActionType {
+  KEEP
+  DELETE
+  REPLACE
+  MOVE_EARLIER
+  MOVE_LATER
+  SHORTEN
+  STRENGTHEN
+  RESHOOT
+  CHANGE_CREATOR
+  CHANGE_SCENE
+  CHANGE_SUBTITLE
+  CHANGE_CTA
+  CONTINUE_OBSERVING
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  UNDO_IMPORT
+  EXPORT
+  ANALYZE
+  VIEW
+}
+
+model Product {
+  id              String        @id @default(cuid())
+  name            String
+  model           String?
+  series          String?
+  brand           String?
+  status          RecordStatus @default(PENDING_CONFIRMATION)
+  confirmedClaims Json?
+  pendingClaims   Json?
+  prohibitedClaims Json?
+  sourceNote      String?
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  assets          Asset[]
+  goals           Goal[]
+}
+
+model Channel {
+  id          String      @id @default(cuid())
+  code        ChannelCode @unique
+  name        String
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  assets      AssetChannel[]
+  goals       Goal[]
+  metrics     MetricDefinition[]
+  snapshots   PerformanceSnapshot[]
+  timelines   InteractionTimeline[]
+}
+
+model MetricDefinition {
+  id               String       @id @default(cuid())
+  key              String
+  nameZh           String
+  nameEn           String?
+  channelId        String?
+  category         String?
+  rawField         String?
+  formula          String?
+  numerator        String?
+  denominator      String?
+  timeWindow       String?
+  trafficScope     String?
+  refundIncluded   Boolean?
+  taxIncluded      Boolean?
+  source           String?
+  definitionNote   String?
+  version          String       @default("v1")
+  status           MetricStatus @default(PENDING_CONFIRMATION)
+  confirmedAt      DateTime?
+  owner            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  channel          Channel?     @relation(fields: [channelId], references: [id])
+  goals            Goal[]
+  snapshots        PerformanceSnapshot[]
+  @@unique([key, channelId, version])
+}
+
+model Goal {
+  id                 String       @id @default(cuid())
+  name               String
+  category           GoalCategory
+  channelId          String?
+  productId          String?
+  periodType         PeriodType
+  periodStart        DateTime
+  periodEnd          DateTime
+  baselineValue      Float?
+  targetValue        Float?
+  currentValue       Float?
+  progressRate       Float?
+  gapValue           Float?
+  unit               String
+  priority           GoalPriority @default(MEDIUM)
+  status             GoalStatus   @default(ON_TRACK)
+  owner              String?
+  metricDefinitionId String?
+  source             String?
+  lastUpdatedAt      DateTime?
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  channel            Channel?     @relation(fields: [channelId], references: [id])
+  product            Product?     @relation(fields: [productId], references: [id])
+  metricDefinition   MetricDefinition? @relation(fields: [metricDefinitionId], references: [id])
+  progress           GoalProgress[]
+}
+
+model GoalProgress {
+  id            String   @id @default(cuid())
+  goalId        String
+  date          DateTime
+  value         Float?
+  cumulativeValue Float?
+  source        String?
+  importBatchId String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  goal          Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
+  @@unique([goalId, date])
+}
+
+model Asset {
+  id                  String       @id @default(cuid())
+  externalMaterialId  String?      @unique
+  assetCode           String       @unique
+  originalFilename    String?
+  displayName         String
+  thumbnailUrl        String?
+  durationSeconds     Int?
+  createdAt           DateTime     @default(now())
+  sourceType          SourceType
+  creatorId           String?
+  productId           String?
+  contentType         String?
+  status              AssetStatus  @default(DRAFT)
+  firstLaunchStatus   FirstLaunchStatus @default(UNKNOWN)
+  incrementalStatus   IncrementalStatus @default(UNKNOWN)
+  tags                Json?
+  analysisStatus      EvidenceStatus @default(INSUFFICIENT)
+  updatedAt           DateTime     @updatedAt
+  product             Product?     @relation(fields: [productId], references: [id])
+  channels            AssetChannel[]
+  versions            AssetVersion[]
+  snapshots           PerformanceSnapshot[]
+  timelines           InteractionTimeline[]
+  reviews             Review[]
+}
+
+model AssetChannel {
+  assetId   String
+  channelId String
+  asset     Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  @@id([assetId, channelId])
+}
+
+model AssetVersion {
+  id                         String   @id @default(cuid())
+  assetId                    String
+  versionNumber              Int
+  parentVersionId            String?
+  changeSummary              String?
+  changedSegments            Json?
+  hookType                   String?
+  hookText                   String?
+  productFirstAppearSecond   Int?
+  ctaAppearSecond            Int?
+  durationSeconds            Int?
+  publishedAt                DateTime?
+  createdAt                  DateTime @default(now())
+  asset                      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  parentVersion              AssetVersion? @relation("VersionParent", fields: [parentVersionId], references: [id])
+  childVersions              AssetVersion[] @relation("VersionParent")
+  snapshots                  PerformanceSnapshot[]
+  timelines                  InteractionTimeline[]
+  segments                   ContentSegment[]
+  @@unique([assetId, versionNumber])
+}
+
+model PerformanceSnapshot {
+  id                      String   @id @default(cuid())
+  assetId                 String
+  assetVersionId          String?
+  channelId               String
+  accountId               String?
+  campaignId              String?
+  statisticsStart         DateTime
+  statisticsEnd           DateTime
+  orderCount              Int?
+  transactionAmount       Float?
+  transactionAmountShare  Float?
+  spend                   Float?
+  spendShare              Float?
+  baseSpend               Float?
+  paidRoi                 Float?
+  totalRoi                Float?
+  gmv                     Float?
+  ctr                     Float?
+  cvr                     Float?
+  cpm                     Float?
+  cpc                     Float?
+  cpa                     Float?
+  impressions             Int?
+  plays                   Int?
+  clicks                  Int?
+  productClicks           Int?
+  addToCart               Int?
+  payments                Int?
+  dataSource              String?
+  metricDefinitionVersion String?
+  metricDefinitionId      String?
+  importedAt              DateTime?
+  importBatchId           String?
+  createdAt               DateTime @default(now())
+  asset                   Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetVersion            AssetVersion? @relation(fields: [assetVersionId], references: [id])
+  channel                 Channel  @relation(fields: [channelId], references: [id])
+  importBatch             ImportBatch? @relation(fields: [importBatchId], references: [id])
+  metricDefinition        MetricDefinition? @relation(fields: [metricDefinitionId], references: [id])
+  @@index([assetId, statisticsStart, statisticsEnd])
+}
+
+model InteractionTimeline {
+  id              String                @id @default(cuid())
+  assetId         String
+  assetVersionId  String?
+  channelId       String
+  statisticsStart DateTime
+  statisticsEnd   DateTime
+  durationSeconds Int?
+  metricType      InteractionMetricType
+  dataSource      String?
+  importBatchId   String?
+  createdAt       DateTime              @default(now())
+  asset           Asset                 @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  assetVersion    AssetVersion?         @relation(fields: [assetVersionId], references: [id])
+  channel         Channel               @relation(fields: [channelId], references: [id])
+  importBatch     ImportBatch?          @relation(fields: [importBatchId], references: [id])
+  points          InteractionPoint[]
+  @@index([assetId, metricType, statisticsStart, statisticsEnd])
+}
+
+model InteractionPoint {
+  id               String   @id @default(cuid())
+  timelineId       String
+  second           Int
+  timestampLabel   String?
+  value            Float?
+  normalizedValue  Float?
+  changeRate       Float?
+  isPeak           Boolean  @default(false)
+  isDrop           Boolean  @default(false)
+  contentSegmentId String?
+  frameReference   String?
+  notes            String?
+  timeline         InteractionTimeline @relation(fields: [timelineId], references: [id], onDelete: Cascade)
+  contentSegment   ContentSegment? @relation(fields: [contentSegmentId], references: [id])
+  @@unique([timelineId, second])
+}
+
+model ContentSegment {
+  id                String      @id @default(cuid())
+  assetVersionId    String
+  startSecond       Int
+  endSecond         Int
+  segmentType       SegmentType
+  description       String?
+  visualContent     String?
+  spokenContent     String?
+  subtitleContent   String?
+  productShown      Boolean?
+  sellingPointId    String?
+  ctaType           String?
+  emotionalTone     String?
+  manuallyConfirmed Boolean     @default(false)
+  assetVersion      AssetVersion @relation(fields: [assetVersionId], references: [id], onDelete: Cascade)
+  points            InteractionPoint[]
+}
+
+model ImportBatch {
+  id              String       @id @default(cuid())
+  filename        String
+  sourceType      String
+  dataType        String
+  channelCode     ChannelCode?
+  status          ImportStatus @default(UPLOADED)
+  mappingSnapshot Json?
+  validationSummary Json?
+  recordCount     Int          @default(0)
+  errorCount      Int          @default(0)
+  importedAt      DateTime?
+  undoneAt        DateTime?
+  createdAt       DateTime     @default(now())
+  goalProgress    GoalProgress[]
+  snapshots       PerformanceSnapshot[]
+  timelines       InteractionTimeline[]
+}
+
+model Review {
+  id                 String        @id @default(cuid())
+  assetId            String
+  assetVersionId     String?
+  title              String
+  evidenceStatus     EvidenceStatus @default(INSUFFICIENT)
+  dataPeriod         String?
+  sampleDescription  String?
+  status             RecordStatus  @default(DRAFT)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  asset              Asset         @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  insights           Insight[]
+  actions            ReviewAction[]
+}
+
+model Insight {
+  id               String      @id @default(cuid())
+  reviewId         String
+  type             InsightType
+  statement        String
+  evidence         String?
+  relatedSecond    Int?
+  relatedMetric    String?
+  relatedSegmentId String?
+  confidence       String?
+  confounders      String?
+  needsHumanConfirmation Boolean @default(true)
+  createdAt        DateTime    @default(now())
+  review           Review      @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+model ReviewAction {
+  id              String           @id @default(cuid())
+  reviewId        String
+  actionType      ReviewActionType
+  detail          String?
+  targetSecond    Int?
+  status          RecordStatus     @default(DRAFT)
+  createdAt       DateTime         @default(now())
+  review          Review           @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+}
+
+model WeeklyReport {
+  id            String   @id @default(cuid())
+  title         String
+  periodStart   DateTime
+  periodEnd     DateTime
+  status        RecordStatus @default(DRAFT)
+  sections      Json?
+  dataLimitNote String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  action       AuditAction
+  entityType   String
+  entityId     String?
+  actor        String?
+  summary      String
+  metadata     Json?
+  createdAt    DateTime    @default(now())
+}
