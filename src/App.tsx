@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Archive, BarChart3, BookOpen, CheckCircle2, ChevronRight, ClipboardCheck, Database,
-  FileUp, Grid2X2, LayoutDashboard, LineChart, List,
+  CircleHelp, FileUp, Grid2X2, LayoutDashboard, LineChart, List,
   LoaderCircle, Pencil, Play, Plus, RefreshCcw, Search, Settings2, ShieldAlert,
   Sparkles, TableProperties, TriangleAlert, X,
 } from 'lucide-react'
 import { EmptyState, EvidenceBadge, Metric, Notice, StatusBadge } from './components/ui'
 import { localApi } from './lib/api'
 import { parseLocalImportFile, type ParsedLocalFile } from './lib/fileParser'
+import { metricGlossary, type MetricDefinition } from './data/metricGlossary'
 import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product } from './types'
 import './App.css'
 
@@ -34,6 +35,30 @@ const contentSegments = [
   { label: '产品出现', start: 11, end: 14, tone: 'green' },
   { label: 'CTA', start: 14, end: 18, tone: 'orange' },
 ]
+
+function isDemoDataSource(source?: string | null) {
+  return /匿名演示|\bdemo\b|\bseed\b/i.test(source || '')
+}
+
+function isUserAnalysisAsset(asset: Asset) {
+  return asset.snapshots.some((snapshot) => !isDemoDataSource(snapshot.dataSource))
+}
+
+const userImportStorageKey = 'sleepflow-user-import-batch-ids'
+
+function userImportedBatchIds() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(userImportStorageKey) || '[]')
+    return Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function rememberUserImportBatch(id: string) {
+  const ids = [...new Set([...userImportedBatchIds(), id])]
+  window.localStorage.setItem(userImportStorageKey, JSON.stringify(ids))
+}
 
 function routeFromHash() {
   const raw = window.location.hash.replace(/^#/, '')
@@ -128,14 +153,14 @@ function App() {
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><Sparkles size={20} /><span>SleepFlow Studio</span><small>渠道素材数据分析与复盘工作台</small></div>
-      <div className="demo-flag">匿名演示 seed · 本地 SQLite</div>
+      <div className="demo-flag">本地工作区 · 未导入数据时不显示分析结果</div>
       <nav>{nav.map(({ id, label, icon: Icon }) => <button key={id} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={18} />{label}</button>)}</nav>
       <div className="sidebar-foot"><ShieldAlert size={16} />不连接渠道后台</div>
     </aside>
     <main>
       <header className="toolbar">
         <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索素材、渠道或数据来源" /></label>
-        <div className="toolbar-meta"><EvidenceBadge source="本地 SQLite" status="匿名演示" /><StatusBadge status={loadError ? '连接异常' : '本地运行'} /></div>
+        <div className="toolbar-meta"><EvidenceBadge source="本地 SQLite" status="本地运行" /><StatusBadge status={loadError ? '连接异常' : '数据待导入'} /></div>
       </header>
       <section className="workarea">
         {loading ? <LoadingState /> : loadError ? <ErrorState message={loadError} retry={reload} /> : <>
@@ -144,8 +169,8 @@ function App() {
           {page === 'products' && <Products rows={data.products} edit={setProductEditor} refresh={reload} notify={setToast} />}
           {page === 'assets' && <Assets rows={filteredAssets} channels={data.channels} navigate={navigate} edit={setAssetEditor} />}
           {page === 'import' && <ImportCenter batches={data.imports} refresh={reload} notify={setToast} />}
-          {page === 'creative-analysis' && <CreativeAnalysis assets={filteredAssets} navigate={navigate} />}
-          {(page === 'comparison' || page === 'analysis') && <Analysis assets={data.assets} channels={data.channels} navigate={navigate} />}
+          {page === 'creative-analysis' && <CreativeAnalysis assets={filteredAssets.filter(isUserAnalysisAsset)} navigate={navigate} />}
+          {(page === 'comparison' || page === 'analysis') && <Analysis assets={data.assets} navigate={navigate} />}
           {page === 'review' && <Review assets={data.assets} />}
           {(page === 'weekly-review' || page === 'report') && <WeeklyReport />}
           {page === 'benchmark' && <Benchmark navigate={navigate} />}
@@ -166,36 +191,57 @@ const PageHeader = ({ title, subtitle, actions }: { title: string; subtitle: str
   <div className="page-head"><div><h1>{title}</h1><p>{subtitle}</p></div>{actions && <div className="page-actions">{actions}</div>}</div>
 
 function LoadingState() {
-  return <div className="loading-state"><LoaderCircle className="spin" size={30} /><h1>正在连接本地工作站</h1><p>读取 SQLite 中的匿名演示 seed。</p><div className="skeleton-grid">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</div></div>
+  return <div className="loading-state"><LoaderCircle className="spin" size={30} /><h1>正在连接本地工作站</h1><p>读取本地数据与导入记录。</p><div className="skeleton-grid">{Array.from({ length: 6 }, (_, index) => <i key={index} />)}</div></div>
 }
 
 function ErrorState({ message, retry }: { message: string; retry: () => Promise<void> }) {
   return <div className="error-state"><TriangleAlert size={32} /><h1>本地数据服务未连接</h1><p>{message}</p><button className="primary" onClick={() => void retry()}><RefreshCcw size={17} />重新连接</button></div>
 }
 
+function MetricHelp({ metric }: { metric: MetricDefinition }) {
+  const [hovering, setHovering] = useState(false)
+  const [pinned, setPinned] = useState(false)
+  const open = hovering || pinned
+  return <span className="metric-help" onMouseEnter={() => setHovering(true)} onMouseLeave={() => setHovering(false)}>
+    <button type="button" className="metric-help-button" aria-label={`解释 ${metric.name}`} aria-expanded={open} onClick={() => setPinned((value) => !value)}><CircleHelp size={15} /></button>
+    {open && <span className="metric-help-card" role="dialog" aria-label={`${metric.name}说明`}><strong>{metric.name}{metric.abbreviation ? `（${metric.abbreviation}）` : ''}</strong><b>怎么算</b><span>{metric.formula}</span><b>怎么看</b><span>{metric.howToRead}</span><b>高低代表什么</b><span>{metric.direction}</span><em>{metric.caution}</em></span>}
+  </span>
+}
+
+function MetricGuideCard({ metric }: { metric: MetricDefinition }) {
+  return <section className="panel metric-guide-card" aria-live="polite"><div className="section-head"><div><h2>{metric.name}{metric.abbreviation ? `（${metric.abbreviation}）` : ''}</h2><small>{metric.category} · {metric.channels}</small></div><MetricHelp metric={metric} /></div><dl><div><dt>这是什么</dt><dd>{metric.meaning}</dd></div><div><dt>怎么算</dt><dd>{metric.formula}</dd></div><div><dt>怎样看</dt><dd>{metric.howToRead}</dd></div><div><dt>高低怎么理解</dt><dd>{metric.direction}</dd></div><div><dt>使用前确认</dt><dd>{metric.caution}</dd></div><div><dt>数据来源</dt><dd>{metric.source}</dd></div></dl></section>
+}
+
 function DataOverview({ data, navigate }: { data: AppData; navigate: (page: Page, id?: string) => void }) {
   const [channel, setChannel] = useState('全部渠道')
   const [product, setProduct] = useState('全部产品')
-  const filtered = data.assets.filter((asset) => (channel === '全部渠道' || asset.channels.some((item) => item.channel.name === channel)) && (product === '全部产品' || asset.product?.name === product))
+  const analysisAssets = data.assets.filter(isUserAnalysisAsset)
+  const availableChannels = [...new Set(analysisAssets.flatMap((asset) => asset.channels.map(({ channel: item }) => item.name)))]
+  const availableProducts = [...new Set(analysisAssets.flatMap((asset) => asset.product?.name ? [asset.product.name] : []))]
+  const filtered = analysisAssets.filter((asset) => (channel === '全部渠道' || asset.channels.some((item) => item.channel.name === channel)) && (product === '全部产品' || asset.product?.name === product))
   const withSnapshot = filtered.filter((asset) => asset.snapshots.length > 0)
   const incomplete = filtered.filter((asset) => asset.snapshots.length === 0)
+  if (!analysisAssets.length) return <>
+    <PageHeader title="数据总览" subtitle="这里只显示你已导入、且来源不是演示记录的分析数据。当前还没有你的数据。" actions={<><button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入表格或数据</button><button className="outline" onClick={() => navigate('metrics')}><BookOpen size={17} />查看指标词典</button></>} />
+    <section className="panel empty-workspace"><EmptyState title="还没有你的分析数据" detail="导入 CSV 或 XLSX 并完成校验后，这里才会显示素材、指标和图表；匿名演示记录不会进入你的数据总览。" /><div className="empty-actions"><button className="primary" onClick={() => navigate('import')}><FileUp size={17} />去导入数据</button><button className="outline" onClick={() => navigate('metrics')}><CircleHelp size={17} />先认识指标</button></div></section>
+  </>
   return <>
-    <PageHeader title="数据总览" subtitle="先把数据交给系统，再基于已导入的来源、周期与口径进行分析。当前所有内容均为匿名演示数据。" actions={<>
+    <PageHeader title="数据总览" subtitle="基于已导入数据进行查看。比较前请确认渠道、统计周期和指标口径一致。" actions={<>
       <button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入表格或数据</button>
       <button className="outline" onClick={() => navigate('creative-analysis')}><LineChart size={17} />开始单条分析</button>
       <button className="outline" onClick={() => navigate('weekly-review')}><ClipboardCheck size={17} />创建周度复盘</button>
     </>} />
     <div className="filter-bar">
       <label>当前分析周期<select defaultValue="本周"><option>本周</option><option>本月</option><option disabled>自定义（尚未接入）</option></select></label>
-      <label>渠道<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>全部渠道</option>{data.channels.map((item) => <option key={item.id}>{item.name}</option>)}</select></label>
-      <label>产品<select value={product} onChange={(event) => setProduct(event.target.value)}><option>全部产品</option>{data.products.map((item) => <option key={item.id}>{item.name}</option>)}</select></label>
-      <span><Database size={15} />来源：匿名演示 seed · 数据完整度待确认</span>
+      <label>渠道<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>全部渠道</option>{availableChannels.map((item) => <option key={item}>{item}</option>)}</select></label>
+      <label>产品<select value={product} onChange={(event) => setProduct(event.target.value)}><option>全部产品</option>{availableProducts.map((item) => <option key={item}>{item}</option>)}</select></label>
+      <span><Database size={15} />来源：已导入数据 · 仍请确认数据完整度</span>
     </div>
     <div className="metric-grid">
-      <Metric label="素材数量" value={String(filtered.length).padStart(2, '0')} tone="cyan" />
-      <Metric label="已有有效数据的素材" value={String(withSnapshot.length).padStart(2, '0')} tone="green" />
+      <Metric label="素材数量" value={String(filtered.length)} note="已导入、可用于查看" tone="cyan" />
+      <Metric label="已有有效数据的素材" value={String(withSnapshot.length)} note="已导入经营快照" tone="green" />
       <Metric label="数据不足素材" value={String(incomplete.length).padStart(2, '0')} tone="orange" />
-      <Metric label="导入批次" value={String(data.imports.length).padStart(2, '0')} tone="blue" />
+      <Metric label="导入批次" value={String(data.imports.filter((batch) => userImportedBatchIds().includes(batch.id)).length)} note="你的有效导入记录" tone="blue" />
     </div>
     <div className="dashboard-grid">
       <section className="panel"><div className="section-head"><h2>从数据开始</h2><small>不需要先建立产品或素材档案</small></div>
@@ -205,16 +251,16 @@ function DataOverview({ data, navigate }: { data: AppData; navigate: (page: Page
           ['查看指标含义、公式与当前口径状态', () => navigate('metrics')],
         ].map(([label, action], index) => <button className="task" key={String(label)} onClick={action as () => void}><b>0{index + 1}</b><span>{String(label)}</span><ChevronRight size={17} /></button>)}
       </section>
-      <section className="panel media-rail"><div className="section-head"><h2>本周素材分布</h2><small>只呈现已导入或已关联快照的记录</small></div><div>{filtered.slice(0, 3).map((asset) => <button className="asset-thumb" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><i /><strong>{asset.assetCode}</strong><span>{channelNames(asset)} · {asset.snapshots.length ? '可分析' : '数据不足'}</span></button>)}</div></section>
+      <section className="panel media-rail"><div className="section-head"><h2>已导入素材</h2><small>只呈现你的数据</small></div><div>{filtered.slice(0, 3).map((asset) => <button className="asset-thumb" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><i /><strong>{asset.assetCode}</strong><span>{channelNames(asset)} · {asset.snapshots.length ? '可分析' : '数据不足'}</span></button>)}</div></section>
     </div>
-    <section className="panel table-panel"><div className="section-head"><h2>可进入分析的素材</h2><small>数据周期与来源在进入后单独说明</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section>
+    <section className="panel table-panel"><div className="section-head"><h2>已导入、可分析的素材</h2><small>数据周期与来源在进入后单独说明</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section>
   </>
 }
 
 function CreativeAnalysis({ assets, navigate }: { assets: Asset[]; navigate: (page: Page, id?: string) => void }) {
   return <>
-    <PageHeader title="单条素材分析" subtitle="选择已导入的素材数据，查看经营指标、逐秒曲线、数据事实与待验证假设。" actions={<button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入素材数据</button>} />
-    <Notice>本页面不要求先创建素材档案。当前只展示已导入或匿名演示数据；缺少逐秒曲线、数据周期或来源时会明确标记为数据不足。</Notice>
+    <PageHeader title="单条素材分析" subtitle="选择你已导入的素材数据，查看经营指标、逐秒曲线、数据事实与待验证假设。" actions={<button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入素材数据</button>} />
+    <Notice>本页面只展示你的导入数据。缺少逐秒曲线、数据周期或来源时会明确标记为数据不足，而不会用演示记录替代。</Notice>
     {assets.length ? <section className="panel table-panel"><div className="section-head"><h2>选择一条素材开始分析</h2><small>点击“分析”后查看数据来源、周期与证据</small></div><AssetTable rows={assets} navigate={navigate} /></section> : <EmptyState title="尚无可分析素材" detail="请先导入单条素材表格、逐秒数据或相关截图；截图识别将在下一阶段接入人工校对流程。" />}
   </>
 }
@@ -327,6 +373,7 @@ function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; re
   const [issues, setIssues] = useState<{ errors: ImportIssue[]; warnings: ImportIssue[] }>({ errors: [], warnings: [] })
   const [status, setStatus] = useState<'idle' | 'parsing' | 'ready' | 'validated' | 'importing' | 'done'>('idle')
   const [message, setMessage] = useState<string | null>(null)
+  const visibleBatches = batches.filter((batch) => userImportedBatchIds().includes(batch.id))
 
   const fields = importFieldSets[dataType]
   const mappedRows = useMemo(() => parsed?.rows.map((row) => Object.fromEntries(parsed.headers.flatMap((header) => mapping[header] ? [[mapping[header], row[header]]] : []))) || [], [mapping, parsed])
@@ -372,6 +419,7 @@ function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; re
     setStatus('importing')
     try {
       const result = await localApi.imports.commit({ filename, sourceType: parsed.sourceType, dataType, mapping, rows: mappedRows })
+      rememberUserImportBatch(result.batchId)
       setStatus('done')
       setMessage(`导入完成：批次 ${result.batchId}，写入 ${result.recordCount} 行。`)
       notify('导入批次已写入 SQLite')
@@ -406,23 +454,28 @@ function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; re
       <div className="confirm-row"><EvidenceBadge source="本地文件预览" status="口径待确认" /><button className="outline" onClick={() => void validate()}>校验数据</button><button className="primary" disabled={status !== 'validated'} onClick={() => void commit()}>确认写入</button></div>
       {(issues.errors.length > 0 || issues.warnings.length > 0) && <div className="issue-list">{issues.errors.map((issue, index) => <div className="issue error" key={`e-${index}`}>第 {issue.row || '—'} 行 · {issue.field}：{issue.message}</div>)}{issues.warnings.map((issue, index) => <div className="issue warning" key={`w-${index}`}>第 {issue.row || '—'} 行 · {issue.field}：{issue.message}</div>)}</div>}
     </section>}
-    <section className="panel table-panel"><div className="section-head"><h2>导入历史</h2><small>最近 50 个批次</small></div>{batches.length ? <table><thead><tr><th>文件</th><th>类型</th><th>记录数</th><th>状态</th><th>时间</th><th /></tr></thead><tbody>{batches.map((batch) => <tr key={batch.id}><td><strong>{batch.filename}</strong><small>{batch.id}</small></td><td>{batch.dataType}</td><td>{batch.recordCount}</td><td><StatusBadge status={importStatus(batch.status)} /></td><td>{formatDateTime(batch.createdAt)}</td><td>{batch.status === 'IMPORTED' ? <button className="danger-outline compact" onClick={() => void undo(batch)}>撤销批次</button> : <span className="muted">—</span>}</td></tr>)}</tbody></table> : <EmptyState title="还没有导入批次" detail="选择匿名模板完成首次导入。" />}</section>
+    <section className="panel table-panel"><div className="section-head"><h2>你的导入记录</h2><small>只显示你的有效导入；开发测试记录已隐藏</small></div>{visibleBatches.length ? <table><thead><tr><th>文件</th><th>类型</th><th>记录数</th><th>状态</th><th>时间</th><th /></tr></thead><tbody>{visibleBatches.map((batch) => <tr key={batch.id}><td><strong>{batch.filename}</strong><small>{batch.id}</small></td><td>{batch.dataType}</td><td>{batch.recordCount}</td><td><StatusBadge status={importStatus(batch.status)} /></td><td>{formatDateTime(batch.createdAt)}</td><td>{batch.status === 'IMPORTED' ? <button className="danger-outline compact" onClick={() => void undo(batch)}>撤销批次</button> : <span className="muted">—</span>}</td></tr>)}</tbody></table> : <EmptyState title="还没有你的导入记录" detail="完成一次表格校验并确认写入后，这里会显示数据状态、来源、时间和撤销入口。" />}</section>
   </>
 }
 
-function Analysis({ assets, channels, navigate }: { assets: Asset[]; channels: Channel[]; navigate: (page: Page, id?: string) => void }) {
+function Analysis({ assets, navigate }: { assets: Asset[]; navigate: (page: Page, id?: string) => void }) {
   const [channel, setChannel] = useState('全部渠道')
-  const filtered = channel === '全部渠道' ? assets : assets.filter((asset) => asset.channels.some((item) => item.channel.name === channel))
+  const analysisAssets = assets.filter(isUserAnalysisAsset)
+  const availableChannels = [...new Set(analysisAssets.flatMap((asset) => asset.channels.map(({ channel: item }) => item.name)))]
+  const filtered = channel === '全部渠道' ? analysisAssets : analysisAssets.filter((asset) => asset.channels.some((item) => item.channel.name === channel))
   const withSnapshot = filtered.filter((asset) => asset.snapshots[0])
   const spend = withSnapshot.reduce((sum, asset) => sum + (asset.snapshots[0].spend || 0), 0)
   const gmv = withSnapshot.reduce((sum, asset) => sum + (asset.snapshots[0].gmv || 0), 0)
   const roi = spend ? gmv / spend : null
+  const maxCtr = Math.max(...withSnapshot.map((asset) => asset.snapshots[0].ctr || 0), 0)
   return <>
-    <PageHeader title="素材对比" subtitle="使用已导入快照比较素材表现；不同渠道或口径不一致时不直接给出数值优劣结论。" />
-    <div className="filter-bar"><label>渠道<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>全部渠道</option>{channels.map((item) => <option key={item.id}>{item.name}</option>)}</select></label><label>时间<select defaultValue="最近快照"><option>最近快照</option><option disabled>自定义区间（尚未接入）</option></select></label><span><Database size={15} />数据来源：匿名演示 seed</span></div>
-    <Notice>阈值与指标口径仍待内部确认；空值不会参与平均或被解释为 0。</Notice>
-    <div className="metric-grid"><Metric label="有快照素材" value={String(withSnapshot.length)} /><Metric label="演示 GMV" value={gmv ? gmv.toFixed(0) : '—'} /><Metric label="演示消耗" value={spend ? spend.toFixed(0) : '—'} /><Metric label="演示 ROI" value={roi ? roi.toFixed(2) : '—'} /></div>
-    <div className="analysis-grid"><section className="panel"><div className="section-head"><h2>CTR × CVR 象限</h2><small>最近快照</small></div>{withSnapshot.length ? <div className="quadrant">{withSnapshot.map((asset, index) => <button key={asset.id} aria-label={asset.displayName} style={{ left: `${20 + ((asset.snapshots[0].ctr || 0) * 1600) % 65}%`, top: `${20 + ((asset.snapshots[0].cvr || 0) * 1700) % 60}%` }} onClick={() => navigate('asset-detail', asset.id)}><span>{index + 1}</span></button>)}</div> : <EmptyState title="数据不足" detail="当前筛选没有可用于象限的 CTR/CVR 快照。" />}</section><section className="panel table-panel"><div className="section-head"><h2>素材对比</h2><small>点击进入逐秒分析</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section></div>
+    <PageHeader title="素材对比" subtitle="只比较你的导入数据。系统不会用 CTR × CVR 象限或随机位置替你判断好坏。" actions={<button className="outline" onClick={() => navigate('metrics')}><CircleHelp size={17} />理解 CTR、CVR 与 ROI</button>} />
+    {analysisAssets.length < 2 ? <section className="panel empty-workspace"><EmptyState title={analysisAssets.length ? '还需要至少 2 条素材数据' : '还没有可比较的真实数据'} detail="导入两条或更多来源、统计周期和口径可确认的素材表现数据后，这里才会生成对比图和排序；演示样本不会参与比较。" /><div className="empty-actions"><button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入素材表现数据</button><button className="outline" onClick={() => navigate('metrics')}><CircleHelp size={17} />先查看指标说明</button></div></section> : <>
+      <div className="filter-bar"><label>渠道<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>全部渠道</option>{availableChannels.map((item) => <option key={item}>{item}</option>)}</select></label><label>时间<select defaultValue="最近快照"><option>最近快照</option><option disabled>自定义区间（尚未接入）</option></select></label><span><Database size={15} />数据来源：你的已导入数据</span></div>
+      <Notice>先选择一个渠道和统一的统计周期，再比较同一指标。空值不会被当作 0；指标定义可点击问号查看。</Notice>
+      <div className="metric-grid"><Metric label="有快照素材" value={String(withSnapshot.length)} note="同一筛选条件下的素材数" /><Metric label={<span>成交金额 <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'gmv')!} /></span>} value={gmv ? gmv.toFixed(0) : '—'} note="需确认成交口径" /><Metric label={<span>消耗 <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'spend')!} /></span>} value={spend ? spend.toFixed(0) : '—'} note="需确认费用范围" /><Metric label={<span>支付 ROI <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'paid_roi')!} /></span>} value={roi ? roi.toFixed(2) : '—'} note="不是利润率" /></div>
+      <div className="analysis-grid"><section className="panel comparison-bars"><div className="section-head"><div><h2>按点击率（CTR）对比 <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'ctr')!} /></h2><small>横轴是 CTR；条越长表示在当前筛选下点击率更高</small></div><small>仅供同渠道、同周期、同口径比较</small></div>{withSnapshot.some((asset) => asset.snapshots[0].ctr !== null && asset.snapshots[0].ctr !== undefined) ? <div>{withSnapshot.filter((asset) => asset.snapshots[0].ctr !== null && asset.snapshots[0].ctr !== undefined).sort((a, b) => (b.snapshots[0].ctr || 0) - (a.snapshots[0].ctr || 0)).map((asset) => <button className="comparison-bar" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><span>{asset.displayName}</span><i><b style={{ width: `${maxCtr ? ((asset.snapshots[0].ctr || 0) / maxCtr) * 100 : 0}%` }} /></i><strong>{((asset.snapshots[0].ctr || 0) * 100).toFixed(2)}%</strong></button>)}</div> : <EmptyState title="当前数据没有 CTR" detail="导入包含展现量和点击量，或平台直接提供的 CTR 后再进行此项对比。" />}</section><section className="panel table-panel"><div className="section-head"><h2>素材对比明细</h2><small>点击进入单条分析</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section></div>
+    </>}
   </>
 }
 
@@ -446,7 +499,12 @@ function WeeklyReport() {
 }
 
 function Metrics() {
-  return <><PageHeader title="指标词典" subtitle="查看每个指标的含义、来源和当前口径状态。支付 ROI、净成交 ROI 与其他 ROI 不会被默认视为同一指标。" /><section className="panel table-panel"><table><thead><tr><th>指标</th><th>渠道</th><th>状态</th><th>来源</th><th>说明</th></tr></thead><tbody>{['GMV', '支付 ROI', 'CTR', 'CVR'].map((metric) => <tr key={metric}><td><strong>{metric}</strong></td><td>全部渠道</td><td><StatusBadge status="待确认" /></td><td><EvidenceBadge source="匿名演示 seed" /></td><td>原始字段、时间范围与流量范围待内部确认</td></tr>)}</tbody></table></section></>
+  const [selectedId, setSelectedId] = useState('ctr')
+  const [category, setCategory] = useState('全部分类')
+  const categories = [...new Set(metricGlossary.map((metric) => metric.category))]
+  const visibleMetrics = category === '全部分类' ? metricGlossary : metricGlossary.filter((metric) => metric.category === category)
+  const selected = metricGlossary.find((metric) => metric.id === selectedId) || metricGlossary[0]
+  return <><PageHeader title="指标词典" subtitle="把每个指标说清楚：它是什么、怎么算、怎样看、通常高低代表什么，以及比较前必须确认什么。" /><Notice>“渠道”指该指标通常在哪类平台可取到；“数据来源”指你之后应从哪里导出或确认，而不是当前已经存在的数据。不同渠道、周期、归因窗口或分母不一致时，不能直接比较。</Notice><div className="dictionary-layout"><section className="panel table-panel glossary-table"><div className="section-head"><h2>电商与短视频运营词典</h2><label className="compact-field">分类<select value={category} onChange={(event) => setCategory(event.target.value)}><option>全部分类</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></label></div><table><thead><tr><th>指标</th><th>适用渠道</th><th>数据来源</th><th>怎样看</th><th /></tr></thead><tbody>{visibleMetrics.map((metric) => <tr key={metric.id} className={selected.id === metric.id ? 'selected-row' : ''}><td><button className="table-primary" onClick={() => setSelectedId(metric.id)}>{metric.name}<small>{metric.abbreviation || metric.category}</small></button></td><td>{metric.channels}</td><td>{metric.source}</td><td>{metric.howToRead}</td><td><button className="link" aria-label={`查看 ${metric.name} 说明`} onClick={() => setSelectedId(metric.id)}><CircleHelp size={16} />说明</button></td></tr>)}</tbody></table></section><MetricGuideCard metric={selected} /></div></>
 }
 
 function AssetDetail({ asset, edit, refresh, notify }: { asset: Asset; edit: () => void; refresh: () => Promise<void>; notify: (message: string) => void }) {

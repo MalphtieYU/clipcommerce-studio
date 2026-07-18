@@ -20,6 +20,6 @@ export function Notice({ children }: { children: ReactNode }) {
   return <div className="notice"><Info size={16} />{children}</div>
 }
 
-export function Metric({ label, value, note = '演示数据 · 待确认', tone = 'blue' }: { label: string; value: string; note?: string; tone?: string }) {
+export function Metric({ label, value, note = '数据待确认', tone = 'blue' }: { label: ReactNode; value: string; note?: string; tone?: string }) {
   return <div className="metric"><span>{label}</span><strong className={tone}>{value}</strong><small>{note}</small></div>
 }
