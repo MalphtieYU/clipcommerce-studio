@@ -372,22 +372,42 @@ const importFieldSets = {
     ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['durationSeconds', '时长（秒）'], ['sourceType', '素材来源'], ['productName', '产品名称'], ['channel', '渠道'],
   ],
   'asset-performance': [
-    ['assetCode', '素材编号'], ['channel', '渠道（抖音/天猫）'], ['statisticsStart', '数据周期开始'], ['statisticsEnd', '数据周期结束'], ['spend', '消耗'], ['impressions', '展示数/展现量'], ['plays', '播放数'], ['clicks', '点击数'], ['productClicks', '商品点击数'], ['addToCart', '加购人数/数'], ['payments', '支付买家数/订单数'], ['gmv', '成交/支付金额'], ['ctr', '点击率（小数，如 0.025）'], ['cvr', '转化率（小数，如 0.08）'], ['paidRoi', '支付 ROI'],
+    ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['channel', '渠道（抖音/天猫）'], ['statisticsStart', '数据周期开始'], ['statisticsEnd', '数据周期结束'], ['spend', '消耗'], ['impressions', '展示数/展现量'], ['plays', '播放数'], ['clicks', '点击数'], ['productClicks', '商品点击数'], ['addToCart', '加购人数/数'], ['payments', '支付买家数/订单数'], ['gmv', '成交/支付金额'], ['ctr', '点击率（小数，如 0.025）'], ['cvr', '转化率（小数，如 0.08）'], ['paidRoi', '支付 ROI'],
   ],
 } as const
+
+const screenshotHeaderAliases: Record<string, string> = {
+  material_id: 'assetCode', material_name: 'displayName', statistics_start: 'statisticsStart', statistics_end: 'statisticsEnd', transaction_amount: 'gmv', paid_roi: 'paidRoi',
+}
 
 function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; refresh: () => Promise<void>; notify: (message: string) => void }) {
   const [dataType, setDataType] = useState<keyof typeof importFieldSets>('monthly-goals')
   const [filename, setFilename] = useState('')
   const [parsed, setParsed] = useState<ParsedLocalFile | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
+  const [statisticsFallbackDate, setStatisticsFallbackDate] = useState('')
+  const [channelFallback, setChannelFallback] = useState<'抖音' | '天猫'>('抖音')
   const [issues, setIssues] = useState<{ errors: ImportIssue[]; warnings: ImportIssue[] }>({ errors: [], warnings: [] })
   const [status, setStatus] = useState<'idle' | 'parsing' | 'ready' | 'validated' | 'importing' | 'done'>('idle')
   const [message, setMessage] = useState<string | null>(null)
   const visibleBatches = batches.filter((batch) => userImportedBatchIds().includes(batch.id))
 
   const fields = importFieldSets[dataType]
-  const mappedRows = useMemo(() => parsed?.rows.map((row) => Object.fromEntries(parsed.headers.flatMap((header) => mapping[header] ? [[mapping[header], row[header]]] : []))) || [], [mapping, parsed])
+  const mappedRows = useMemo(() => parsed?.rows.map((row) => {
+    const mapped = Object.fromEntries(parsed.headers.flatMap((header) => mapping[header] ? [[mapping[header], row[header]]] : [])) as Record<string, unknown>
+    if (dataType === 'asset-performance') {
+      const hasUsableDate = (value: unknown) => {
+        const date = typeof value === 'string' ? new Date(value) : null
+        return Boolean(date && !Number.isNaN(date.getTime()) && date.getUTCFullYear() >= 2000)
+      }
+      if (channelFallback && !mapped.channel) mapped.channel = channelFallback
+      if (statisticsFallbackDate) {
+        if (!hasUsableDate(mapped.statisticsStart)) mapped.statisticsStart = statisticsFallbackDate
+        if (!hasUsableDate(mapped.statisticsEnd)) mapped.statisticsEnd = statisticsFallbackDate
+      }
+    }
+    return mapped
+  }) || [], [channelFallback, dataType, mapping, parsed, statisticsFallbackDate])
   const chooseFile = async (file: File) => {
     setStatus('parsing')
     setMessage(null)
@@ -396,14 +416,16 @@ function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; re
       const result = await parseLocalImportFile(file)
       const nextMapping = Object.fromEntries(result.headers.map((header) => {
         const english = header.match(/\(([^()]+)\)\s*$/)?.[1]
-        const match = fields.find(([key, label]) => key.toLowerCase() === (english || header).trim().toLowerCase() || label === header)
+        const normalized = (english || header).trim().toLowerCase().replace(/\s+/g, '_')
+        const alias = screenshotHeaderAliases[normalized]
+        const match = fields.find(([key, label]) => key.toLowerCase() === normalized || label === header || key === alias)
         return [header, match?.[0] || '']
       }))
       setFilename(file.name)
       setParsed(result)
       setMapping(nextMapping)
       setStatus('ready')
-      setMessage(`已在浏览器本地解析 ${result.rows.length} 行；文件内容未发送到第三方。`)
+      setMessage(`已在浏览器本地解析 ${result.rows.length} 行；文件内容未发送到第三方。${result.warnings[0] ? ` ${result.warnings[0]}` : ''}`)
     } catch (error) {
       setParsed(null)
       setStatus('idle')
@@ -452,9 +474,10 @@ function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; re
     <div className="steps">{['上传', '预览', '字段映射', '口径确认', '数据校验', '人工确认', '导入报告'].map((step, index) => <div key={step} className={(status === 'idle' ? 0 : status === 'ready' ? 2 : status === 'validated' ? 5 : status === 'done' ? 6 : 1) >= index ? 'current' : ''}><b>{index + 1}</b>{step}</div>)}</div>
     <div className="import-layout">
       <section className="panel import-zone">
-        <FileUp size={32} /><h2>选择本地文件</h2><p>支持 CSV、XLSX；最大 50MB、10,000 行、40 列。拒绝公式与隐藏结构。</p>
+        <FileUp size={32} /><h2>选择本地文件</h2><p>支持 CSV、XLSX；最大 50MB、10,000 行、40 列。优先读取无公式数据页；当前导入页的公式与隐藏结构会被拒绝。</p>
         <label className="file-button">选择文件<input aria-label="选择导入文件" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => event.target.files?.[0] && void chooseFile(event.target.files[0])} /></label>
-        <label className="compact-field">导入类型<select value={dataType} onChange={(event) => { setDataType(event.target.value as keyof typeof importFieldSets); setParsed(null); setStatus('idle'); setMessage('导入类型已切换，请重新选择文件。') }}><option value="monthly-goals">月度目标</option><option value="asset-metadata">素材元数据</option><option value="asset-performance">素材表现</option><option disabled>逐秒互动（下一阶段）</option></select></label>
+        <label className="compact-field">导入类型<select value={dataType} onChange={(event) => { setDataType(event.target.value as keyof typeof importFieldSets); setParsed(null); setStatus('idle'); setMessage('导入类型已切换，请重新选择文件。') }}><option value="monthly-goals">月度目标</option><option value="asset-metadata">素材元数据</option><option value="asset-performance">素材表现 / 截图整理</option><option disabled>逐秒互动（下一阶段）</option></select></label>
+        {dataType === 'asset-performance' && <><label className="compact-field">截图对应投放渠道<select value={channelFallback} onChange={(event) => { setChannelFallback(event.target.value as '抖音' | '天猫'); setStatus('ready') }}><option value="抖音">抖音</option><option value="天猫">天猫</option></select><small>仅补充原表为空的渠道；已有渠道不会被改写。</small></label><label className="compact-field">截图对应统计日期<input type="date" value={statisticsFallbackDate} onChange={(event) => { setStatisticsFallbackDate(event.target.value); setStatus('ready') }} /><small>当截图中没有日期或只是占位值时，由你补充；不会自动编造。</small></label></>}
         {status === 'parsing' || status === 'importing' ? <div className="busy"><LoaderCircle className="spin" />{status === 'importing' ? '正在写入本地数据库…' : '正在本地解析/校验…'}</div> : null}
         {message && <Notice>{message}</Notice>}
       </section>

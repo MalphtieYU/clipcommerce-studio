@@ -41,18 +41,18 @@ const fieldAliases = {
   category: ['category', '目标分类'],
   periodStart: ['periodStart', '周期开始', '报告周期开始'],
   targetValue: ['targetValue', '目标值'],
-  assetCode: ['assetCode', '素材编号'],
-  displayName: ['displayName', '素材名称'],
-  externalMaterialId: ['externalMaterialId', '外部素材ID'],
+  assetCode: ['assetCode', '素材编号', 'material_id', '素材ID'],
+  displayName: ['displayName', '素材名称', 'material_name', '素材名'],
+  externalMaterialId: ['externalMaterialId', '外部素材ID', 'material_id'],
   durationSeconds: ['durationSeconds', '时长(秒)', '时长'],
   sourceType: ['sourceType', '素材来源'],
   productName: ['productName', '产品名称'],
   channel: ['channel', '渠道'],
-  statisticsStart: ['statisticsStart', '数据周期开始'],
-  statisticsEnd: ['statisticsEnd', '数据周期结束'],
+  statisticsStart: ['statisticsStart', '数据周期开始', 'statistics_start'],
+  statisticsEnd: ['statisticsEnd', '数据周期结束', 'statistics_end'],
   spend: ['spend', '消耗'],
-  paidRoi: ['paidRoi', '支付ROI', '支付 ROI'],
-  gmv: ['gmv', '成交金额', '支付金额', 'GMV'],
+  paidRoi: ['paidRoi', '支付ROI', '支付 ROI', 'paid_roi'],
+  gmv: ['gmv', '成交金额', '支付金额', 'GMV', 'transaction_amount'],
   impressions: ['impressions', '展示数', '展现量'],
   plays: ['plays', '播放数', '播放量'],
   clicks: ['clicks', '点击数', '点击量'],
@@ -65,7 +65,7 @@ const fieldAliases = {
 const typeFields = {
   'monthly-goals': ['name', 'category', 'periodStart', 'targetValue'],
   'asset-metadata': ['assetCode', 'displayName', 'externalMaterialId', 'durationSeconds', 'sourceType', 'productName', 'channel'],
-  'asset-performance': ['assetCode', 'channel', 'statisticsStart', 'statisticsEnd', 'spend', 'paidRoi', 'gmv', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'],
+  'asset-performance': ['assetCode', 'displayName', 'externalMaterialId', 'channel', 'statisticsStart', 'statisticsEnd', 'spend', 'paidRoi', 'gmv', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'],
 };
 
 const json = (response, status, payload) => {
@@ -273,6 +273,17 @@ const xmlText = (xml) => [...String(xml).matchAll(/<(?:[\w.-]+:)?t\b[^>]*>([\s\S
   .map((match) => decodeXml(match[1]))
   .join('');
 
+const importSheetPriority = (name = '') => {
+  const normalized = String(name).trim();
+  if (normalized === '导入数据') return 0;
+  if (/工作台.*导入.*测试|导入.*测试/.test(normalized)) return 1;
+  if (/导入|数据/.test(normalized)) return 2;
+  return 10;
+};
+
+const xmlHasFormula = (xml) => /<(?:[\w.-]+:)?f(?:\s|>)/i.test(xml);
+const xmlHasHiddenStructure = (xml) => /<(?:[\w.-]+:)?(?:row|col)\b[^>]*\bhidden\s*=\s*["'](?:1|true)["']/i.test(xml);
+
 const parsePrefixedXlsx = async (buffer) => {
   let zip;
   try {
@@ -309,20 +320,37 @@ const parsePrefixedXlsx = async (buffer) => {
   const relationships = new Map([...relationshipXml.matchAll(/<(?:[\w.-]+:)?Relationship\b([^>]*)\/>/gi)]
     .map((match) => [xmlAttribute(match[1], 'Id'), xmlAttribute(match[1], 'Target')]));
   const sheets = [...workbookXml.matchAll(/<(?:[\w.-]+:)?sheet\b([^>]*)\/>/gi)]
-    .map((match) => ({ name: xmlAttribute(match[1], 'name'), relationshipId: xmlAttribute(match[1], 'r:id') }));
-  const selectedSheet = sheets.find((sheet) => sheet.name === '导入数据') || sheets[0];
-  const target = relationships.get(selectedSheet?.relationshipId || '');
-  const worksheetPath = target
-    ? target.replace(/^\//, '').startsWith('xl/') ? target.replace(/^\//, '') : `xl/${target.replace(/^\//, '')}`
-    : 'xl/worksheets/sheet1.xml';
-  const worksheetXml = await readEntry(worksheetPath);
-  if (!worksheetXml || !/<(?:[\w.-]+:)?worksheet\b/i.test(worksheetXml)) {
-    const error = new Error('无法读取 XLSX 导入工作表');
+    .map((match) => ({ name: xmlAttribute(match[1], 'name'), relationshipId: xmlAttribute(match[1], 'r:id'), state: xmlAttribute(match[1], 'state') }));
+  const hiddenSheet = sheets.find((sheet) => sheet.state && sheet.state !== 'visible');
+  if (hiddenSheet) {
+    const error = new Error(`检测到隐藏工作表「${hiddenSheet.name}」；请取消隐藏并人工确认后再导入`);
     error.status = 422;
     throw error;
   }
-  if (/<(?:[\w.-]+:)?f(?:\s|>)/i.test(worksheetXml)) {
-    const error = new Error('检测到公式；本地导入拒绝公式工作簿');
+  const candidates = sheets.map((sheet) => {
+    const target = relationships.get(sheet.relationshipId || '');
+    const path = target
+      ? target.replace(/^\//, '').startsWith('xl/') ? target.replace(/^\//, '') : `xl/${target.replace(/^\//, '')}`
+      : 'xl/worksheets/sheet1.xml';
+    return { ...sheet, path };
+  }).sort((left, right) => importSheetPriority(left.name) - importSheetPriority(right.name));
+  let selectedSheet;
+  let worksheetXml = '';
+  for (const candidate of candidates) {
+    const xml = await readEntry(candidate.path);
+    if (xml && /<(?:[\w.-]+:)?worksheet\b/i.test(xml) && !xmlHasFormula(xml)) {
+      selectedSheet = candidate;
+      worksheetXml = xml;
+      break;
+    }
+  }
+  if (!worksheetXml || !/<(?:[\w.-]+:)?worksheet\b/i.test(worksheetXml)) {
+    const error = new Error('未找到无公式的可导入工作表；请将需要导入的数据复制到无公式页签');
+    error.status = 422;
+    throw error;
+  }
+  if (xmlHasHiddenStructure(worksheetXml)) {
+    const error = new Error('检测到隐藏行或列；请取消隐藏并人工确认后再导入');
     error.status = 422;
     throw error;
   }
@@ -351,7 +379,14 @@ const parsePrefixedXlsx = async (buffer) => {
     }
     return cells;
   };
-  const headerCells = readCells(rowMatches[0][1]);
+  const parsedRows = rowMatches.map((match) => ({ number: Number(xmlAttribute(match[0], 'r')) || 0, cells: readCells(match[1]) }));
+  const headerEntry = parsedRows.find((entry) => [...entry.cells.values()].filter((value) => Object.hasOwn(fieldAliases, canonicalHeader(value))).length >= 2);
+  if (!headerEntry) {
+    const error = new Error('未识别到字段表头；请在同一行提供至少两个已支持字段名');
+    error.status = 422;
+    throw error;
+  }
+  const headerCells = headerEntry.cells;
   const headers = [...headerCells.entries()].sort(([a], [b]) => a - b).map(([, value]) => String(value ?? '').trim());
   if (!headers.length || headers.some((header) => !header) || headers.length > 40 || new Set(headers.map((header) => header.toLowerCase())).size !== headers.length) {
     const error = new Error('XLSX 表头为空、重复或超过 40 列限制');
@@ -359,12 +394,12 @@ const parsePrefixedXlsx = async (buffer) => {
     throw error;
   }
   const headerIndexes = [...headerCells.keys()].sort((a, b) => a - b);
-  const rows = rowMatches.slice(1).map((match) => {
-    const cells = readCells(match[1]);
+  const rows = parsedRows.filter((entry) => entry.number > headerEntry.number).map((entry) => {
+    const cells = entry.cells;
     return Object.fromEntries(headers.map((header, index) => {
       const value = cells.get(headerIndexes[index]) ?? null;
       const numeric = typeof value === 'string' && /^\d{1,5}(?:\.\d+)?$/.test(value) ? Number(value) : null;
-      const isDateColumn = ['periodStart', 'statisticsStart'].includes(canonicalHeader(header));
+      const isDateColumn = ['periodStart', 'statisticsStart', 'statisticsEnd'].includes(canonicalHeader(header));
       const normalized = isDateColumn && numeric !== null && numeric > 0 && numeric < 60000
         ? new Date(Date.UTC(1899, 11, 30) + numeric * 86_400_000).toISOString().slice(0, 10)
         : value;
@@ -376,7 +411,7 @@ const parsePrefixedXlsx = async (buffer) => {
     error.status = 422;
     throw error;
   }
-  return { sourceType: 'xlsx', headers, rows, warnings: ['XLSX 由本机服务解析；隐藏工作表、隐藏行列和公式单元格会被拒绝。'] };
+  return { sourceType: 'xlsx', headers, rows, warnings: [`已选择无公式数据页「${selectedSheet.name}」；其他含公式页未读取。`, 'XLSX 由本机服务解析；隐藏工作表、隐藏行列和当前导入页的公式单元格会被拒绝。'] };
 };
 
 const parseLocalXlsx = async ({ filename, mimeType, contentBase64 }) => {
@@ -425,7 +460,15 @@ const parseLocalXlsx = async ({ filename, mimeType, contentBase64 }) => {
     error.status = 422;
     throw error;
   }
-  const sheet = workbook.worksheets.find((item) => item.name === '导入数据') || workbook.worksheets[0];
+  const orderedSheets = [...workbook.worksheets].sort((left, right) => importSheetPriority(left.name) - importSheetPriority(right.name));
+  const sheetHasFormula = (candidate) => Array.from({ length: candidate.rowCount }, (_, index) => candidate.getRow(index + 1))
+    .some((row) => row.values.some((value) => value && typeof value === 'object' && ('formula' in value || 'sharedFormula' in value)));
+  const sheet = orderedSheets.find((candidate) => !sheetHasFormula(candidate));
+  if (!sheet) {
+    const error = new Error('未找到无公式的可导入工作表；请将需要导入的数据复制到无公式页签');
+    error.status = 422;
+    throw error;
+  }
   if (sheet.rowCount < 2 || sheet.columnCount < 1) {
     const error = new Error('工作表没有数据行');
     error.status = 422;
@@ -436,7 +479,14 @@ const parseLocalXlsx = async ({ filename, mimeType, contentBase64 }) => {
     error.status = 422;
     throw error;
   }
-  const headers = Array.from({ length: sheet.columnCount }, (_, index) => sheet.getRow(1).getCell(index + 1).text.trim());
+  const headerRow = Array.from({ length: sheet.rowCount }, (_, index) => sheet.getRow(index + 1))
+    .find((candidate) => candidate.values.filter((value) => Object.hasOwn(fieldAliases, canonicalHeader(value))).length >= 2);
+  if (!headerRow) {
+    const error = new Error('未识别到字段表头；请在同一行提供至少两个已支持字段名');
+    error.status = 422;
+    throw error;
+  }
+  const headers = Array.from({ length: sheet.columnCount }, (_, index) => headerRow.getCell(index + 1).text.trim());
   if (!headers.length || headers.some((header) => !header)) {
     const error = new Error('存在空白表头');
     error.status = 422;
@@ -448,7 +498,7 @@ const parseLocalXlsx = async ({ filename, mimeType, contentBase64 }) => {
     throw error;
   }
   const rows = [];
-  for (let rowNumber = 2; rowNumber <= sheet.rowCount; rowNumber += 1) {
+  for (let rowNumber = headerRow.number + 1; rowNumber <= sheet.rowCount; rowNumber += 1) {
     const values = headers.map((header, index) => {
       const cell = sheet.getRow(rowNumber).getCell(index + 1);
       const value = cell.value;
@@ -475,7 +525,7 @@ const parseLocalXlsx = async ({ filename, mimeType, contentBase64 }) => {
     error.status = 422;
     throw error;
   }
-  return { sourceType: 'xlsx', headers, rows, warnings: ['XLSX 由本机服务解析；隐藏工作表、隐藏行列和公式单元格会被拒绝。'] };
+  return { sourceType: 'xlsx', headers, rows, warnings: [`已选择无公式数据页「${sheet.name}」；其他含公式页未读取。`, 'XLSX 由本机服务解析；隐藏工作表、隐藏行列和当前导入页的公式单元格会被拒绝。'] };
 };
 
 const validateImport = async (dataType, inputRows) => {
@@ -519,6 +569,7 @@ const validateImport = async (dataType, inputRows) => {
     if (dataType === 'asset-metadata') {
       const assetCode = nullableText(row.assetCode)?.toUpperCase();
       const displayName = nullableText(row.displayName);
+      const externalMaterialId = nullableText(row.externalMaterialId);
       const durationSeconds = nullableNumber(row.durationSeconds);
       const sourceTypeText = String(row.sourceType || '').trim();
       const sourceType = sourceTypeAliases.get(sourceTypeText) || sourceTypeAliases.get(sourceTypeText.toUpperCase()) || null;
@@ -538,11 +589,13 @@ const validateImport = async (dataType, inputRows) => {
       }
       const channelCode = nullableText(row.channel) ? channelAliases.get(String(row.channel).trim().toUpperCase()) || channelAliases.get(String(row.channel).trim()) : null;
       if (nullableText(row.channel) && !channelCode) errors.push({ row: rowNumber, field: 'channel', message: '无法匹配渠道' });
-      Object.assign(row, { assetCode, displayName, durationSeconds, sourceType, productId, channelCode });
+      Object.assign(row, { assetCode, displayName, externalMaterialId, durationSeconds, sourceType, productId, channelCode });
     }
 
     if (dataType === 'asset-performance') {
       const assetCode = nullableText(row.assetCode)?.toUpperCase();
+      const displayName = nullableText(row.displayName);
+      const externalMaterialId = nullableText(row.externalMaterialId);
       const channelCode = channelAliases.get(String(row.channel || '').trim().toUpperCase()) || channelAliases.get(String(row.channel || '').trim());
       const statisticsStart = nullableDate(row.statisticsStart);
       const statisticsEnd = nullableDate(row.statisticsEnd) || statisticsStart;
@@ -550,14 +603,15 @@ const validateImport = async (dataType, inputRows) => {
       const values = Object.fromEntries(numericFields.map((key) => [key, nullableNumber(row[key])]));
       const asset = assetCode ? await prisma.asset.findUnique({ where: { assetCode } }) : null;
       const channel = channelCode ? await prisma.channel.findUnique({ where: { code: channelCode } }) : null;
-      if (!asset) errors.push({ row: rowNumber, field: 'assetCode', message: '无法匹配素材' });
+      if (!assetCode || !/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(assetCode)) errors.push({ row: rowNumber, field: 'assetCode', message: '素材编号格式无效' });
+      if (!asset && !displayName) errors.push({ row: rowNumber, field: 'displayName', message: '素材不存在时，需要提供素材名称以创建素材记录' });
       if (!channel) errors.push({ row: rowNumber, field: 'channel', message: '无法匹配渠道' });
       if (!statisticsStart) errors.push({ row: rowNumber, field: 'statisticsStart', message: '日期格式无效' });
       for (const [key, value] of Object.entries(values)) if (Number.isNaN(value)) errors.push({ row: rowNumber, field: key, message: '必须为数字或空值' });
       if (asset && channel && statisticsStart && await prisma.performanceSnapshot.findFirst({ where: { assetId: asset.id, channelId: channel.id, statisticsStart } })) {
         errors.push({ row: rowNumber, field: 'statisticsStart', message: '同素材、渠道与周期的数据已存在' });
       }
-      Object.assign(row, { assetId: asset?.id, channelId: channel?.id, statisticsStart, statisticsEnd, ...values });
+      Object.assign(row, { assetId: asset?.id, assetCode, displayName, externalMaterialId, channelId: channel?.id, statisticsStart, statisticsEnd, ...values });
     }
   }
   return { rows, errors, warnings };
@@ -584,6 +638,7 @@ const importRows = async (body) => {
 
   try {
     await prisma.$transaction(async (tx) => {
+      const createdAssetIdsByCode = new Map();
       for (const row of validation.rows) {
         if (dataType === 'monthly-goals') {
           const goal = await tx.goal.create({
@@ -624,9 +679,27 @@ const importRows = async (body) => {
           created.assets.push(asset.id);
         }
         if (dataType === 'asset-performance') {
+          let assetId = row.assetId || createdAssetIdsByCode.get(row.assetCode);
+          if (!assetId) {
+            const asset = await tx.asset.create({
+              data: {
+                assetCode: row.assetCode,
+                displayName: row.displayName,
+                externalMaterialId: row.externalMaterialId,
+                sourceType: 'IMPORTED',
+                status: 'INSUFFICIENT_DATA',
+                tags: ['截图整理导入'],
+                channels: { create: [{ channel: { connect: { id: row.channelId } } }] },
+                versions: { create: [{ versionNumber: 1, changeSummary: '由截图整理的素材表现导入创建', durationSeconds: null }] },
+              },
+            });
+            assetId = asset.id;
+            createdAssetIdsByCode.set(row.assetCode, assetId);
+            created.assets.push(asset.id);
+          }
           const snapshot = await tx.performanceSnapshot.create({
             data: {
-              assetId: row.assetId,
+              assetId,
               channelId: row.channelId,
               statisticsStart: row.statisticsStart,
               statisticsEnd: row.statisticsEnd,
