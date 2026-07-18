@@ -40,6 +40,12 @@ export type Snapshot = {
   gmv: number | null
   ctr: number | null
   cvr: number | null
+  impressions: number | null
+  plays: number | null
+  clicks: number | null
+  productClicks: number | null
+  addToCart: number | null
+  payments: number | null
   dataSource: string | null
   metricDefinitionVersion: string | null
   channel: Channel

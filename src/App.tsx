@@ -3,13 +3,13 @@ import {
   Archive, BarChart3, BookOpen, CheckCircle2, ChevronRight, ClipboardCheck, Database,
   CircleHelp, FileUp, Grid2X2, LayoutDashboard, LineChart, List,
   LoaderCircle, Pencil, Play, Plus, RefreshCcw, Search, Settings2, ShieldAlert,
-  Sparkles, TableProperties, TriangleAlert, X,
+  Sparkles, TriangleAlert, X,
 } from 'lucide-react'
 import { EmptyState, EvidenceBadge, Metric, Notice, StatusBadge } from './components/ui'
 import { localApi } from './lib/api'
 import { parseLocalImportFile, type ParsedLocalFile } from './lib/fileParser'
-import { metricGlossary, type MetricDefinition } from './data/metricGlossary'
-import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product } from './types'
+import { platformMetricGlossary as metricGlossary, type MetricDefinition } from './data/metricGlossary'
+import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product, Snapshot } from './types'
 import './App.css'
 
 type Page = 'data-overview' | 'import' | 'creative-analysis' | 'comparison' | 'weekly-review' | 'benchmark' | 'metrics' | 'reports' | 'dashboard' | 'goals' | 'products' | 'assets' | 'analysis' | 'review' | 'report' | 'asset-detail' | 'asset-admin'
@@ -20,14 +20,12 @@ const nav: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'import', label: '数据导入', icon: FileUp },
   { id: 'creative-analysis', label: '单条素材分析', icon: LineChart },
   { id: 'comparison', label: '素材对比', icon: BarChart3 },
-  { id: 'weekly-review', label: '周度复盘', icon: ClipboardCheck },
   { id: 'benchmark', label: '竞品对标', icon: BookOpen },
   { id: 'metrics', label: '指标词典', icon: Settings2 },
   { id: 'reports', label: '历史报告', icon: Archive },
 ]
 const legacyPages = new Set<Page>(['dashboard', 'goals', 'products', 'assets', 'analysis', 'review', 'report', 'asset-detail', 'asset-admin'])
 const emptyData: AppData = { products: [], assets: [], goals: [], channels: [], imports: [] }
-const reportSections = ['目标完成情况', '素材生产', '渠道经营', '内容行为', '素材案例', '版本迭代', '下周动作']
 const contentSegments = [
   { label: '开头', start: 0, end: 3, tone: 'blue' },
   { label: '痛点', start: 3, end: 7, tone: 'cyan' },
@@ -63,7 +61,7 @@ function rememberUserImportBatch(id: string) {
 function routeFromHash() {
   const raw = window.location.hash.replace(/^#/, '')
   const [rawPage = 'data-overview', id] = raw.split('/')
-  const page = rawPage === 'dashboard' ? 'data-overview' : rawPage
+  const page = rawPage === 'dashboard' ? 'data-overview' : rawPage === 'weekly-review' || rawPage === 'report' ? 'reports' : rawPage
   return { page: nav.some((item) => item.id === page) || legacyPages.has(page as Page) ? page as Page : 'data-overview', id }
 }
 
@@ -172,10 +170,9 @@ function App() {
           {page === 'creative-analysis' && <CreativeAnalysis assets={filteredAssets.filter(isUserAnalysisAsset)} navigate={navigate} />}
           {(page === 'comparison' || page === 'analysis') && <Analysis assets={data.assets} navigate={navigate} />}
           {page === 'review' && <Review assets={data.assets} />}
-          {(page === 'weekly-review' || page === 'report') && <WeeklyReport />}
           {page === 'benchmark' && <Benchmark navigate={navigate} />}
           {page === 'metrics' && <Metrics />}
-          {page === 'reports' && <HistoryReports navigate={navigate} />}
+          {page === 'reports' && <HistoryReports assets={data.assets} navigate={navigate} />}
           {(page === 'asset-detail' || page === 'asset-admin') && selectedAsset && <AssetDetail asset={selectedAsset} edit={() => setAssetEditor(selectedAsset)} refresh={reload} notify={setToast} />}
         </>}
       </section>
@@ -209,7 +206,7 @@ function MetricHelp({ metric }: { metric: MetricDefinition }) {
 }
 
 function MetricGuideCard({ metric }: { metric: MetricDefinition }) {
-  return <section className="panel metric-guide-card" aria-live="polite"><div className="section-head"><div><h2>{metric.name}{metric.abbreviation ? `（${metric.abbreviation}）` : ''}</h2><small>{metric.category} · {metric.channels}</small></div><MetricHelp metric={metric} /></div><dl><div><dt>这是什么</dt><dd>{metric.meaning}</dd></div><div><dt>怎么算</dt><dd>{metric.formula}</dd></div><div><dt>怎样看</dt><dd>{metric.howToRead}</dd></div><div><dt>高低怎么理解</dt><dd>{metric.direction}</dd></div><div><dt>使用前确认</dt><dd>{metric.caution}</dd></div><div><dt>数据来源</dt><dd>{metric.source}</dd></div></dl></section>
+  return <section className="panel metric-guide-card" aria-live="polite"><div className="section-head"><div><h2>{metric.name}{metric.abbreviation ? `（${metric.abbreviation}）` : ''}</h2><small>{metric.platform || '工作台通用'} · {metric.channels}</small></div><MetricHelp metric={metric} /></div><dl><div><dt>这是什么</dt><dd>{metric.meaning}</dd></div><div><dt>怎么算</dt><dd>{metric.formula}</dd></div><div><dt>怎样看</dt><dd>{metric.howToRead}</dd></div><div><dt>高低怎么理解</dt><dd>{metric.direction}</dd></div><div><dt>使用前确认</dt><dd>{metric.caution}</dd></div><div><dt>数据来源</dt><dd>{metric.source}</dd></div>{metric.officialReference && <div><dt>官方口径依据</dt><dd>{metric.officialReference}{metric.sourceUrl && <> <a href={metric.sourceUrl} target="_blank" rel="noreferrer">查看官方说明</a></>}</dd></div>}<div><dt>本工作台处理方式</dt><dd>{metric.calculationType || '通用解释；导入时需确认平台字段和分母。'}</dd></div></dl></section>
 }
 
 function DataOverview({ data, navigate }: { data: AppData; navigate: (page: Page, id?: string) => void }) {
@@ -229,7 +226,7 @@ function DataOverview({ data, navigate }: { data: AppData; navigate: (page: Page
     <PageHeader title="数据总览" subtitle="基于已导入数据进行查看。比较前请确认渠道、统计周期和指标口径一致。" actions={<>
       <button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入表格或数据</button>
       <button className="outline" onClick={() => navigate('creative-analysis')}><LineChart size={17} />开始单条分析</button>
-      <button className="outline" onClick={() => navigate('weekly-review')}><ClipboardCheck size={17} />创建周度复盘</button>
+      <button className="outline" onClick={() => navigate('reports')}><ClipboardCheck size={17} />查看自动复盘报告</button>
     </>} />
     <div className="filter-bar">
       <label>当前分析周期<select defaultValue="本周"><option>本周</option><option>本月</option><option disabled>自定义（尚未接入）</option></select></label>
@@ -269,8 +266,22 @@ function Benchmark({ navigate }: { navigate: (page: Page, id?: string) => void }
   return <><PageHeader title="竞品对标" subtitle="仅比较用户提供并确认来源、周期与口径的数据；不会预设品牌名称或伪造竞品指标。" actions={<button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入竞品数据</button>} /><EmptyState title="尚未导入竞品资料" detail="下一阶段将支持竞品截图、表格、素材链接记录与人工拆解表；口径不一致时仅做内容结构对比，不做数值优劣判断。" /></>
 }
 
-function HistoryReports({ navigate }: { navigate: (page: Page, id?: string) => void }) {
-  return <><PageHeader title="历史报告" subtitle="历史报告将在周度复盘保存能力接入后显示；当前不会伪造可下载或已保存的报告。" actions={<button className="outline" onClick={() => navigate('weekly-review')}><TableProperties size={17} />进入周度复盘</button>} /><EmptyState title="暂无已保存报告" detail="目前周度复盘仍是会话草稿。保存、导出和历史归档将在后续阶段接入。" /></>
+function HistoryReports({ assets, navigate }: { assets: Asset[]; navigate: (page: Page, id?: string) => void }) {
+  const reportAssets = assets.filter((asset) => isUserAnalysisAsset(asset) && asset.snapshots.length >= 2)
+  return <><PageHeader title="自动复盘报告" subtitle="根据已导入的素材表现、趋势和指标口径自动生成；这里不是手写周报入口。" actions={<button className="outline" onClick={() => navigate('creative-analysis')}><LineChart size={17} />查看单条素材分析</button>} />{reportAssets.length ? <><Notice>本报告只陈述导入数据中可复核的变化。跨渠道、归因窗口不同或缺少投放动作记录时，不给出因果结论。</Notice><section className="panel auto-report"><div className="section-head"><div><h2>本次自动复盘摘要</h2><small>{reportAssets.length} 条素材 · {reportAssets.reduce((sum, asset) => sum + asset.snapshots.length, 0)} 条日期快照</small></div><StatusBadge status="基于已导入数据" /></div><div className="auto-report-grid">{reportAssets.map((asset) => <article key={asset.id}><h3>{asset.displayName}</h3><p>{autoReportSummary(asset)}</p><button className="link" onClick={() => navigate('asset-detail', asset.id)}>查看趋势与分析 <LineChart size={15} /></button></article>)}</div></section><section className="panel auto-report"><div className="section-head"><h2>建议的复盘顺序</h2><small>由数据触发，不替代人工判断</small></div><ol className="report-checklist"><li>先在同一渠道、同一投放目标下看趋势，确认数据周期和归因窗口。</li><li>抖音优先检查展示→点击→转化，以及播放/完播；天猫优先检查访客→加购→支付。</li><li>将变化日期对照素材版本、投放、人群、价格、库存和页面改动，再写入最终业务结论。</li></ol></section></> : <EmptyState title="尚未生成复盘报告" detail="至少导入一条素材在两个或以上日期的表现数据后，系统会在这里生成可审查的趋势摘要。" />}</>
+}
+
+function autoReportSummary(asset: Asset) {
+  const snapshots = [...asset.snapshots].sort((a, b) => new Date(a.statisticsStart).getTime() - new Date(b.statisticsStart).getTime())
+  const first = snapshots[0]
+  const last = snapshots.at(-1)!
+  const parts = [
+    ['支付 ROI', first.paidRoi, last.paidRoi, 'ratio'],
+    ['CTR', first.ctr, last.ctr, 'percent'],
+    ['CVR', first.cvr, last.cvr, 'percent'],
+    ['成交/支付金额', first.gmv, last.gmv, 'number'],
+  ].flatMap(([label, before, after, format]) => typeof before === 'number' && typeof after === 'number' ? [`${label} ${formatTrendValue(before, format as TrendMetric['format'])} → ${formatTrendValue(after, format as TrendMetric['format'])}`] : [])
+  return parts.length ? `${formatDate(first.statisticsStart)} 至 ${formatDate(last.statisticsStart)}：${parts.join('；')}。` : `已积累 ${snapshots.length} 条日期快照，但缺少可直接比较的核心指标。`
 }
 
 function Products({ rows, edit, refresh, notify }: { rows: Product[]; edit: (product: Product | null) => void; refresh: () => Promise<void>; notify: (message: string) => void }) {
@@ -313,7 +324,7 @@ function Assets({ rows, channels, navigate, edit }: { rows: Asset[]; channels: C
       <div className="segmented"><button className={view === 'grid' ? 'selected' : ''} onClick={() => setView('grid')}><Grid2X2 size={15} />网格</button><button className={view === 'list' ? 'selected' : ''} onClick={() => setView('list')}><List size={15} />列表</button></div>
       <label className="compact-field">渠道筛选<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>全部渠道</option>{channels.map((item) => <option key={item.id}>{item.name}</option>)}</select></label>
     </div>
-    {!filtered.length ? <EmptyState title="没有匹配素材" detail="修改搜索/渠道条件，或创建一条素材基础记录。" /> : view === 'grid' ? <div className="asset-grid">{filtered.map((asset) => <button className="asset-card" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><i /><div><StatusBadge status={assetStatus(asset.status)} /><strong>{asset.displayName}</strong><span>{asset.assetCode} · {versionLabel(asset)}</span><small>{channelNames(asset)} · {asset.durationSeconds ?? '—'}s · {asset.contentType || '标签待补充'}</small><EvidenceBadge source={asset.snapshots[0]?.dataSource || '基础信息已入库'} status={asset.snapshots.length ? '待确认' : '数据不足'} /></div></button>)}</div> : <section className="panel table-panel"><AssetTable rows={filtered} navigate={navigate} /></section>}
+    {!filtered.length ? <EmptyState title="没有匹配素材" detail="修改搜索/渠道条件，或创建一条素材基础记录。" /> : view === 'grid' ? <div className="asset-grid">{filtered.map((asset) => <button className="asset-card" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><i /><div><StatusBadge status={assetStatus(asset.status)} /><strong>{asset.displayName}</strong><span>{asset.assetCode} · {versionLabel(asset)}</span><small>{channelNames(asset)} · {asset.durationSeconds ?? '—'}s · {asset.contentType || '标签待补充'}</small><EvidenceBadge source={latestSnapshot(asset)?.dataSource || '基础信息已入库'} status={asset.snapshots.length ? '待确认' : '数据不足'} /></div></button>)}</div> : <section className="panel table-panel"><AssetTable rows={filtered} navigate={navigate} /></section>}
   </>
 }
 
@@ -361,7 +372,7 @@ const importFieldSets = {
     ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['durationSeconds', '时长（秒）'], ['sourceType', '素材来源'], ['productName', '产品名称'], ['channel', '渠道'],
   ],
   'asset-performance': [
-    ['assetCode', '素材编号'], ['channel', '渠道'], ['statisticsStart', '数据周期开始'], ['spend', '消耗'], ['paidRoi', '支付 ROI'],
+    ['assetCode', '素材编号'], ['channel', '渠道（抖音/天猫）'], ['statisticsStart', '数据周期开始'], ['statisticsEnd', '数据周期结束'], ['spend', '消耗'], ['impressions', '展示数/展现量'], ['plays', '播放数'], ['clicks', '点击数'], ['productClicks', '商品点击数'], ['addToCart', '加购人数/数'], ['payments', '支付买家数/订单数'], ['gmv', '成交/支付金额'], ['ctr', '点击率（小数，如 0.025）'], ['cvr', '转化率（小数，如 0.08）'], ['paidRoi', '支付 ROI'],
   ],
 } as const
 
@@ -463,18 +474,18 @@ function Analysis({ assets, navigate }: { assets: Asset[]; navigate: (page: Page
   const analysisAssets = assets.filter(isUserAnalysisAsset)
   const availableChannels = [...new Set(analysisAssets.flatMap((asset) => asset.channels.map(({ channel: item }) => item.name)))]
   const filtered = channel === '全部渠道' ? analysisAssets : analysisAssets.filter((asset) => asset.channels.some((item) => item.channel.name === channel))
-  const withSnapshot = filtered.filter((asset) => asset.snapshots[0])
-  const spend = withSnapshot.reduce((sum, asset) => sum + (asset.snapshots[0].spend || 0), 0)
-  const gmv = withSnapshot.reduce((sum, asset) => sum + (asset.snapshots[0].gmv || 0), 0)
+  const withSnapshot = filtered.filter((asset) => latestSnapshot(asset))
+  const spend = withSnapshot.reduce((sum, asset) => sum + (latestSnapshot(asset)?.spend || 0), 0)
+  const gmv = withSnapshot.reduce((sum, asset) => sum + (latestSnapshot(asset)?.gmv || 0), 0)
   const roi = spend ? gmv / spend : null
-  const maxCtr = Math.max(...withSnapshot.map((asset) => asset.snapshots[0].ctr || 0), 0)
+  const maxCtr = Math.max(...withSnapshot.map((asset) => latestSnapshot(asset)?.ctr || 0), 0)
   return <>
     <PageHeader title="素材对比" subtitle="只比较你的导入数据。系统不会用 CTR × CVR 象限或随机位置替你判断好坏。" actions={<button className="outline" onClick={() => navigate('metrics')}><CircleHelp size={17} />理解 CTR、CVR 与 ROI</button>} />
     {analysisAssets.length < 2 ? <section className="panel empty-workspace"><EmptyState title={analysisAssets.length ? '还需要至少 2 条素材数据' : '还没有可比较的真实数据'} detail="导入两条或更多来源、统计周期和口径可确认的素材表现数据后，这里才会生成对比图和排序；演示样本不会参与比较。" /><div className="empty-actions"><button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入素材表现数据</button><button className="outline" onClick={() => navigate('metrics')}><CircleHelp size={17} />先查看指标说明</button></div></section> : <>
       <div className="filter-bar"><label>渠道<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>全部渠道</option>{availableChannels.map((item) => <option key={item}>{item}</option>)}</select></label><label>时间<select defaultValue="最近快照"><option>最近快照</option><option disabled>自定义区间（尚未接入）</option></select></label><span><Database size={15} />数据来源：你的已导入数据</span></div>
       <Notice>先选择一个渠道和统一的统计周期，再比较同一指标。空值不会被当作 0；指标定义可点击问号查看。</Notice>
       <div className="metric-grid"><Metric label="有快照素材" value={String(withSnapshot.length)} note="同一筛选条件下的素材数" /><Metric label={<span>成交金额 <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'gmv')!} /></span>} value={gmv ? gmv.toFixed(0) : '—'} note="需确认成交口径" /><Metric label={<span>消耗 <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'spend')!} /></span>} value={spend ? spend.toFixed(0) : '—'} note="需确认费用范围" /><Metric label={<span>支付 ROI <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'paid_roi')!} /></span>} value={roi ? roi.toFixed(2) : '—'} note="不是利润率" /></div>
-      <div className="analysis-grid"><section className="panel comparison-bars"><div className="section-head"><div><h2>按点击率（CTR）对比 <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'ctr')!} /></h2><small>横轴是 CTR；条越长表示在当前筛选下点击率更高</small></div><small>仅供同渠道、同周期、同口径比较</small></div>{withSnapshot.some((asset) => asset.snapshots[0].ctr !== null && asset.snapshots[0].ctr !== undefined) ? <div>{withSnapshot.filter((asset) => asset.snapshots[0].ctr !== null && asset.snapshots[0].ctr !== undefined).sort((a, b) => (b.snapshots[0].ctr || 0) - (a.snapshots[0].ctr || 0)).map((asset) => <button className="comparison-bar" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><span>{asset.displayName}</span><i><b style={{ width: `${maxCtr ? ((asset.snapshots[0].ctr || 0) / maxCtr) * 100 : 0}%` }} /></i><strong>{((asset.snapshots[0].ctr || 0) * 100).toFixed(2)}%</strong></button>)}</div> : <EmptyState title="当前数据没有 CTR" detail="导入包含展现量和点击量，或平台直接提供的 CTR 后再进行此项对比。" />}</section><section className="panel table-panel"><div className="section-head"><h2>素材对比明细</h2><small>点击进入单条分析</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section></div>
+      <div className="analysis-grid"><section className="panel comparison-bars"><div className="section-head"><div><h2>按点击率（CTR）对比 <MetricHelp metric={metricGlossary.find((metric) => metric.id === 'douyin_ctr')!} /></h2><small>横轴是 CTR；条越长表示在当前筛选下点击率更高</small></div><small>仅供同渠道、同周期、同口径比较</small></div>{withSnapshot.some((asset) => latestSnapshot(asset)?.ctr !== null && latestSnapshot(asset)?.ctr !== undefined) ? <div>{withSnapshot.filter((asset) => latestSnapshot(asset)?.ctr !== null && latestSnapshot(asset)?.ctr !== undefined).sort((a, b) => (latestSnapshot(b)?.ctr || 0) - (latestSnapshot(a)?.ctr || 0)).map((asset) => <button className="comparison-bar" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><span>{asset.displayName}</span><i><b style={{ width: `${maxCtr ? ((latestSnapshot(asset)?.ctr || 0) / maxCtr) * 100 : 0}%` }} /></i><strong>{((latestSnapshot(asset)?.ctr || 0) * 100).toFixed(2)}%</strong></button>)}</div> : <EmptyState title="当前数据没有 CTR" detail="导入包含展现量和点击量，或平台直接提供的 CTR 后再进行此项对比。" />}</section><section className="panel table-panel"><div className="section-head"><h2>素材对比明细</h2><small>点击进入单条分析</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section></div>
     </>}
   </>
 }
@@ -489,22 +500,55 @@ function Review({ assets }: { assets: Asset[] }) {
   </>
 }
 
-function WeeklyReport() {
-  const [week, setWeek] = useState('2026-07-06')
-  return <>
-    <PageHeader title="周度复盘" subtitle="将数据事实、数据口径、表现较好素材、待优化素材和下周验证方向分开记录；保存与导出尚未接入。" actions={<><button className="outline" disabled>导出 · 尚未接入</button><button className="primary" disabled>保存 · 尚未接入</button></>} />
-    <div className="filter-bar"><label>自然周<input type="date" value={week} onChange={(event) => setWeek(event.target.value)} /></label><span><TriangleAlert size={15} />会话草稿，刷新后不保留</span></div>
-    <div className="report-layout">{reportSections.map((section, index) => <section className="panel report-section" key={section}><span>0{index + 1}</span><div><h2>{section}</h2><textarea aria-label={`${section}内容`} defaultValue={index === 0 ? '月度进度、周度完成、每日趋势、目标差额和风险项。' : '匿名演示 seed · 需要补充数据来源、口径状态和人工结论。'} /></div><StatusBadge status={index === 4 ? '数据不足' : '待确认'} /></section>)}</div>
-  </>
-}
-
 function Metrics() {
   const [selectedId, setSelectedId] = useState('ctr')
   const [category, setCategory] = useState('全部分类')
+  const [platform, setPlatform] = useState<'全部平台' | NonNullable<MetricDefinition['platform']>>('全部平台')
   const categories = [...new Set(metricGlossary.map((metric) => metric.category))]
-  const visibleMetrics = category === '全部分类' ? metricGlossary : metricGlossary.filter((metric) => metric.category === category)
+  const visibleMetrics = metricGlossary.filter((metric) => (category === '全部分类' || metric.category === category) && (platform === '全部平台' || metric.platform === platform))
   const selected = metricGlossary.find((metric) => metric.id === selectedId) || metricGlossary[0]
-  return <><PageHeader title="指标词典" subtitle="把每个指标说清楚：它是什么、怎么算、怎样看、通常高低代表什么，以及比较前必须确认什么。" /><Notice>“渠道”指该指标通常在哪类平台可取到；“数据来源”指你之后应从哪里导出或确认，而不是当前已经存在的数据。不同渠道、周期、归因窗口或分母不一致时，不能直接比较。</Notice><div className="dictionary-layout"><section className="panel table-panel glossary-table"><div className="section-head"><h2>电商与短视频运营词典</h2><label className="compact-field">分类<select value={category} onChange={(event) => setCategory(event.target.value)}><option>全部分类</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></label></div><table><thead><tr><th>指标</th><th>适用渠道</th><th>数据来源</th><th>怎样看</th><th /></tr></thead><tbody>{visibleMetrics.map((metric) => <tr key={metric.id} className={selected.id === metric.id ? 'selected-row' : ''}><td><button className="table-primary" onClick={() => setSelectedId(metric.id)}>{metric.name}<small>{metric.abbreviation || metric.category}</small></button></td><td>{metric.channels}</td><td>{metric.source}</td><td>{metric.howToRead}</td><td><button className="link" aria-label={`查看 ${metric.name} 说明`} onClick={() => setSelectedId(metric.id)}><CircleHelp size={16} />说明</button></td></tr>)}</tbody></table></section><MetricGuideCard metric={selected} /></div></>
+  return <><PageHeader title="指标词典" subtitle="优先采用抖音/巨量与天猫生意参谋的官方字段和说明；本工作台计算的比率会明确写出分子、分母和适用平台。" /><Notice>抖音的 CTR/CVR 以展示、点击、转化链路分析；天猫的支付转化率以同层级访客和支付买家分析。两者不能跨平台直接比较。点击右侧“查看官方说明”可回到指标依据。</Notice><div className="dictionary-layout"><section className="panel table-panel glossary-table"><div className="section-head"><h2>抖音与天猫运营词典</h2><div className="dictionary-filters"><label className="compact-field">平台<select value={platform} onChange={(event) => setPlatform(event.target.value as typeof platform)}><option>全部平台</option><option>抖音/巨量</option><option>天猫/生意参谋</option><option>工作台通用</option></select></label><label className="compact-field">分类<select value={category} onChange={(event) => setCategory(event.target.value)}><option>全部分类</option>{categories.map((item) => <option key={item}>{item}</option>)}</select></label></div></div><table><thead><tr><th>指标</th><th>平台 / 适用渠道</th><th>官方或原始来源</th><th>怎样看</th><th /></tr></thead><tbody>{visibleMetrics.map((metric) => <tr key={metric.id} className={selected.id === metric.id ? 'selected-row' : ''}><td><button className="table-primary" onClick={() => setSelectedId(metric.id)}>{metric.name}<small>{metric.abbreviation || metric.category}</small></button></td><td>{metric.platform || '工作台通用'}<small>{metric.channels}</small></td><td>{metric.source}<small>{metric.calculationType || '字段与分母待确认'}</small></td><td>{metric.howToRead}</td><td><button className="link" aria-label={`查看 ${metric.name} 说明`} onClick={() => setSelectedId(metric.id)}><CircleHelp size={16} />说明</button></td></tr>)}</tbody></table></section><MetricGuideCard metric={selected} /></div></>
+}
+
+const trendMetricOptions = [
+  { id: 'paidRoi', label: '支付 ROI', format: 'ratio' },
+  { id: 'ctr', label: '点击率（CTR）', format: 'percent' },
+  { id: 'cvr', label: '转化率（CVR）', format: 'percent' },
+  { id: 'spend', label: '消耗', format: 'number' },
+  { id: 'gmv', label: '成交/支付金额', format: 'number' },
+  { id: 'plays', label: '播放数', format: 'number' },
+  { id: 'clicks', label: '点击数', format: 'number' },
+] as const
+type TrendMetric = typeof trendMetricOptions[number]
+
+function formatTrendValue(value: number, format: TrendMetric['format']) {
+  if (format === 'percent') return `${(value * 100).toFixed(2)}%`
+  if (format === 'ratio') return value.toFixed(2)
+  return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2 }).format(value)
+}
+
+function PerformanceTrend({ snapshots }: { snapshots: Snapshot[] }) {
+  const [metricId, setMetricId] = useState<TrendMetric['id']>('paidRoi')
+  const metric = trendMetricOptions.find((item) => item.id === metricId) || trendMetricOptions[0]
+  const values = snapshots.map((snapshot) => ({ snapshot, value: snapshot[metric.id] })).filter((item): item is { snapshot: Snapshot; value: number } => typeof item.value === 'number')
+  const max = Math.max(...values.map((item) => item.value), 1)
+  const min = Math.min(...values.map((item) => item.value), 0)
+  const range = Math.max(max - min, 1)
+  const coordinates = values.map((item, index) => ({ ...item, x: values.length === 1 ? 280 : 26 + (index / (values.length - 1)) * 528, y: 178 - ((item.value - min) / range) * 138 }))
+  const path = coordinates.map(({ x, y }) => `${x},${y}`).join(' ')
+  return <section className="panel performance-trend"><div className="section-head"><div><h2>经营数据趋势</h2><small>每个点对应一条导入的日期/周期记录；不以演示数据补点。</small></div><label className="compact-field">查看指标<select value={metricId} onChange={(event) => setMetricId(event.target.value as TrendMetric['id'])}>{trendMetricOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label></div>{values.length >= 2 ? <><div className="trend-chart" role="img" aria-label={`${metric.label}趋势图`}><span className="trend-max">{formatTrendValue(max, metric.format)}</span><span className="trend-min">{formatTrendValue(min, metric.format)}</span><svg viewBox="0 0 580 205" preserveAspectRatio="none"><line x1="26" y1="178" x2="554" y2="178" /><line x1="26" y1="40" x2="554" y2="40" /><polyline points={path} />{coordinates.map(({ snapshot, x, y, value }) => <g key={snapshot.id}><circle cx={x} cy={y} r="5" /><title>{`${formatDate(snapshot.statisticsStart)}：${formatTrendValue(value, metric.format)}`}</title></g>)}</svg></div><div className="trend-dates">{coordinates.map(({ snapshot }) => <span key={snapshot.id}>{formatDate(snapshot.statisticsStart)}</span>)}</div></> : <EmptyState title="还不能生成趋势曲线" detail="同一素材至少导入两个日期/周期的同类指标后，才会连成曲线；单个快照只显示在上方数据卡。" />}</section>
+}
+
+function SnapshotFacts({ snapshots }: { snapshots: Snapshot[] }) {
+  const facts = trendMetricOptions.slice(0, 5).flatMap((metric) => {
+    const values = snapshots.map((snapshot) => snapshot[metric.id]).filter((value): value is number => typeof value === 'number')
+    if (values.length < 2) return []
+    const first = values[0]
+    const last = values.at(-1)!
+    const delta = last - first
+    return [`${metric.label}从 ${formatTrendValue(first, metric.format)} 变为 ${formatTrendValue(last, metric.format)}（${delta >= 0 ? '增加' : '减少'} ${formatTrendValue(Math.abs(delta), metric.format)}）。`]
+  }).slice(0, 3)
+  return <div className="diagnosis"><b>数据事实</b>{facts.length ? facts.map((fact) => <p key={fact}>{fact}</p>) : <p>当前只有一个日期的快照，尚不能判断趋势。</p>}<b>怎样复盘</b><p>先只比较同渠道、同投放目标和相同归因口径的数据；抖音优先检查展示→点击→转化与播放/完播，天猫优先检查访客→加购→支付。</p><b>结论边界</b><p>以上仅描述数据变化，不把相关性写成因果。需要结合投放动作、素材版本、价格、库存和页面变化后再形成优化结论。</p></div>
 }
 
 function AssetDetail({ asset, edit, refresh, notify }: { asset: Asset; edit: () => void; refresh: () => Promise<void>; notify: (message: string) => void }) {
@@ -512,7 +556,8 @@ function AssetDetail({ asset, edit, refresh, notify }: { asset: Asset; edit: () 
   const max = Math.max(...points.map((point) => point.value || 0), 1)
   const [second, setSecond] = useState(points.find((point) => point.isPeak)?.second || 0)
   const [versionOpen, setVersionOpen] = useState(false)
-  const snapshot = asset.snapshots[0]
+  const snapshots = [...asset.snapshots].sort((a, b) => new Date(a.statisticsStart).getTime() - new Date(b.statisticsStart).getTime())
+  const snapshot = snapshots.at(-1)
   const archive = async () => {
     if (!window.confirm(`确认归档素材「${asset.displayName}」？`)) return
     await localApi.assets.archive(asset.id)
@@ -531,16 +576,17 @@ function AssetDetail({ asset, edit, refresh, notify }: { asset: Asset; edit: () 
   const point = points.find((item) => item.second === second)
   return <>
     <PageHeader title="单条素材分析工作台" subtitle={`${asset.assetCode} · ${channelNames(asset)} · ${asset.durationSeconds ?? '—'}s · ${snapshot ? `${formatDate(snapshot.statisticsStart)} 至 ${formatDate(snapshot.statisticsEnd)}` : '数据周期缺失'}`} actions={<><button className="outline" onClick={edit}><Pencil size={16} />编辑素材</button><button className="primary" onClick={() => setVersionOpen(true)}><Plus size={16} />新建版本</button></>} />
-    <section className="asset-hero panel"><div className="video-preview"><Play size={30} /><span>匿名素材占位预览</span></div><div><StatusBadge status={assetStatus(asset.status)} /><h2>{asset.displayName}</h2><p>产品：{asset.product?.name || '未关联'} · 版本：{versionLabel(asset)} · 标签：{asset.tags.join('、') || '待补充'}</p><EvidenceBadge source={snapshot?.dataSource || '素材基础信息已入库'} status={snapshot ? '口径待确认' : '数据不足'} /><div className="version-chain">{asset.versions.map((version, index) => <span key={version.id}>{index > 0 && '→ ' }V{String(version.versionNumber).padStart(2, '0')} · {version.changeSummary || '无说明'}</span>)}</div></div></section>
+    <section className="asset-hero panel"><div className="video-preview"><Play size={30} /><span>素材预览待接入</span></div><div><StatusBadge status={assetStatus(asset.status)} /><h2>{asset.displayName}</h2><p>产品：{asset.product?.name || '未关联'} · 版本：{versionLabel(asset)} · 标签：{asset.tags.join('、') || '待补充'}</p><EvidenceBadge source={snapshot?.dataSource || '素材基础信息已入库'} status={snapshot ? '已导入' : '数据不足'} /><div className="version-chain">{asset.versions.map((version, index) => <span key={version.id}>{index > 0 && '→ ' }V{String(version.versionNumber).padStart(2, '0')} · {version.changeSummary || '无说明'}</span>)}</div></div></section>
     <div className="metric-grid"><Metric label="GMV · 最近快照" value={numberOrMissing(snapshot?.gmv)} /><Metric label="消耗 · 最近快照" value={numberOrMissing(snapshot?.spend)} /><Metric label="支付 ROI · 最近快照" value={numberOrMissing(snapshot?.paidRoi)} /><Metric label="CTR · 最近快照" value={snapshot?.ctr === null || snapshot?.ctr === undefined ? '—' : `${(snapshot.ctr * 100).toFixed(2)}%`} /></div>
+    <PerformanceTrend snapshots={snapshots} />
     <section className="panel timeline-workbench"><div className="timeline-head"><div><h2>视频逐秒分析</h2><p>数据来源：{asset.timelines[0]?.dataSource || '尚未导入逐秒数据'}。</p></div><div className="segmented"><button className="selected">点击</button><button disabled>流失 · 尚未接入</button><button disabled>留存 · 尚未接入</button></div></div>{points.length ? <><div className="chart-row"><div className="chart">{points.map((item) => <button aria-label={`第 ${item.second + 1} 秒`} className={item.second === second ? 'selected' : ''} key={item.second} onClick={() => setSecond(item.second)} style={{ height: `${((item.value || 0) / max) * 170}px` }} />)}</div><aside><StatusBadge status={point?.isPeak ? '峰值' : point?.isDrop ? '流失点' : '待确认'} /><h3>第 {second + 1} 秒</h3><p>互动值：{numberOrMissing(point?.value)}。内容段关联仍需人工确认，不能据此推断因果。</p><EvidenceBadge source={asset.timelines[0]?.dataSource || '数据不足'} /></aside></div><div className="segment-track">{contentSegments.map((segment) => <button className={segment.tone} key={segment.label} style={{ flex: segment.end - segment.start }}>{segment.label}<small>{segment.start}s–{segment.end}s</small></button>)}</div></> : <EmptyState title="逐秒数据不足" detail="数据结构已准备好；interaction-timeline 真实导入安排在下一小阶段。" />}</section>
-    <div className="analysis-detail-grid"><section className="panel"><div className="section-head"><h2>AI 诊断区域</h2><small>人工确认前不形成结论</small></div><div className="diagnosis"><b>数据事实</b><p>{points.length ? '存在匿名演示互动曲线。' : '暂无逐秒样本。'}</p><b>可能原因</b><p>尚未接入可信诊断，不推断因果。</p><b>下一版建议</b><p>版本任务已可真实创建；建议内容仍需人工填写。</p></div></section><section className="panel"><div className="section-head"><h2>经营数据与复盘</h2><small>入口状态</small></div><p className="muted">经营快照：{snapshot ? '已连接 SQLite' : '数据不足'}；复盘保存后端尚未接入。</p><button className="outline" disabled>创建复盘 · 尚未接入</button><button className="danger-outline" onClick={() => void archive()}>归档素材</button></section></div>
+    <div className="analysis-detail-grid"><section className="panel"><div className="section-head"><h2>数据分析说明</h2><small>基于真实导入快照</small></div><SnapshotFacts snapshots={snapshots} /></section><section className="panel"><div className="section-head"><h2>自动复盘报告</h2><small>生成条件</small></div><p className="muted">经营快照：{snapshots.length} 条。达到两个或以上日期后，趋势曲线与事实变化已可用于自动复盘；完整报告归档将在下一阶段接入。</p><button className="outline" disabled>自动生成报告 · 数据积累中</button><button className="danger-outline" onClick={() => void archive()}>归档素材</button></section></div>
     {versionOpen && <Modal title="创建素材新版本" close={() => setVersionOpen(false)}><form className="form-grid" onSubmit={(event) => void newVersion(event)}><label className="span-2">修改说明<textarea name="changeSummary" required placeholder="例如：调整开头并缩短 CTA" /></label><div className="modal-actions"><button type="button" className="outline" onClick={() => setVersionOpen(false)}>取消</button><button className="primary">创建版本</button></div></form></Modal>}
   </>
 }
 
 function AssetTable({ rows, navigate }: { rows: Asset[]; navigate: (page: Page, id?: string) => void }) {
-  return <table><thead><tr><th>素材</th><th>渠道 / 产品</th><th>状态</th><th>数据周期 / 来源</th><th>操作</th></tr></thead><tbody>{rows.map((asset) => <tr key={asset.id}><td><strong>{asset.displayName}</strong><small>{asset.assetCode} · {versionLabel(asset)}</small></td><td>{channelNames(asset)}<small>{asset.product?.name || '未关联产品'}</small></td><td><StatusBadge status={assetStatus(asset.status)} /></td><td>{asset.snapshots[0] ? `${formatDate(asset.snapshots[0].statisticsStart)}–${formatDate(asset.snapshots[0].statisticsEnd)}` : '— 数据不足'}<small>{asset.snapshots[0]?.dataSource || '暂无经营快照'}</small></td><td><button className="link" onClick={() => navigate('asset-detail', asset.id)}>分析 <LineChart size={15} /></button></td></tr>)}</tbody></table>
+  return <table><thead><tr><th>素材</th><th>渠道 / 产品</th><th>状态</th><th>数据周期 / 来源</th><th>操作</th></tr></thead><tbody>{rows.map((asset) => { const snapshot = latestSnapshot(asset); return <tr key={asset.id}><td><strong>{asset.displayName}</strong><small>{asset.assetCode} · {versionLabel(asset)}</small></td><td>{channelNames(asset)}<small>{asset.product?.name || '未关联产品'}</small></td><td><StatusBadge status={assetStatus(asset.status)} /></td><td>{snapshot ? `${formatDate(snapshot.statisticsStart)}–${formatDate(snapshot.statisticsEnd)}` : '— 数据不足'}<small>{snapshot?.dataSource || '暂无经营快照'}</small></td><td><button className="link" onClick={() => navigate('asset-detail', asset.id)}>分析 <LineChart size={15} /></button></td></tr> })}</tbody></table>
 }
 
 function ProductForm({ product, close, save }: { product: Product | null; close: () => void; save: (payload: unknown) => Promise<void> }) {
@@ -635,6 +681,7 @@ function versionLabel(asset: Asset) {
   const latest = asset.versions.at(-1)?.versionNumber || 1
   return `V${String(latest).padStart(2, '0')}`
 }
+function latestSnapshot(asset: Asset) { return asset.snapshots.at(-1) }
 function channelNames(asset: Asset) { return asset.channels.map(({ channel }) => channel.name).join(' / ') || '未关联渠道' }
 function formatDate(value: string) { return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' }).format(new Date(value)) }
 function formatDateTime(value: string) { return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) }

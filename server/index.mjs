@@ -49,13 +49,23 @@ const fieldAliases = {
   productName: ['productName', '产品名称'],
   channel: ['channel', '渠道'],
   statisticsStart: ['statisticsStart', '数据周期开始'],
+  statisticsEnd: ['statisticsEnd', '数据周期结束'],
   spend: ['spend', '消耗'],
   paidRoi: ['paidRoi', '支付ROI', '支付 ROI'],
+  gmv: ['gmv', '成交金额', '支付金额', 'GMV'],
+  impressions: ['impressions', '展示数', '展现量'],
+  plays: ['plays', '播放数', '播放量'],
+  clicks: ['clicks', '点击数', '点击量'],
+  productClicks: ['productClicks', '商品点击数', '商品点击量'],
+  addToCart: ['addToCart', '加购数', '加购人数'],
+  payments: ['payments', '支付数', '支付买家数', '支付订单数'],
+  ctr: ['ctr', '点击率', 'CTR'],
+  cvr: ['cvr', '转化率', 'CVR', '支付转化率'],
 };
 const typeFields = {
   'monthly-goals': ['name', 'category', 'periodStart', 'targetValue'],
   'asset-metadata': ['assetCode', 'displayName', 'externalMaterialId', 'durationSeconds', 'sourceType', 'productName', 'channel'],
-  'asset-performance': ['assetCode', 'channel', 'statisticsStart', 'spend', 'paidRoi'],
+  'asset-performance': ['assetCode', 'channel', 'statisticsStart', 'statisticsEnd', 'spend', 'paidRoi', 'gmv', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'],
 };
 
 const json = (response, status, payload) => {
@@ -535,19 +545,19 @@ const validateImport = async (dataType, inputRows) => {
       const assetCode = nullableText(row.assetCode)?.toUpperCase();
       const channelCode = channelAliases.get(String(row.channel || '').trim().toUpperCase()) || channelAliases.get(String(row.channel || '').trim());
       const statisticsStart = nullableDate(row.statisticsStart);
-      const spend = nullableNumber(row.spend);
-      const paidRoi = nullableNumber(row.paidRoi);
+      const statisticsEnd = nullableDate(row.statisticsEnd) || statisticsStart;
+      const numericFields = ['spend', 'paidRoi', 'gmv', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'];
+      const values = Object.fromEntries(numericFields.map((key) => [key, nullableNumber(row[key])]));
       const asset = assetCode ? await prisma.asset.findUnique({ where: { assetCode } }) : null;
       const channel = channelCode ? await prisma.channel.findUnique({ where: { code: channelCode } }) : null;
       if (!asset) errors.push({ row: rowNumber, field: 'assetCode', message: '无法匹配素材' });
       if (!channel) errors.push({ row: rowNumber, field: 'channel', message: '无法匹配渠道' });
       if (!statisticsStart) errors.push({ row: rowNumber, field: 'statisticsStart', message: '日期格式无效' });
-      if (Number.isNaN(spend)) errors.push({ row: rowNumber, field: 'spend', message: '消耗必须为数字或空值' });
-      if (Number.isNaN(paidRoi)) errors.push({ row: rowNumber, field: 'paidRoi', message: 'ROI 必须为数字或空值' });
+      for (const [key, value] of Object.entries(values)) if (Number.isNaN(value)) errors.push({ row: rowNumber, field: key, message: '必须为数字或空值' });
       if (asset && channel && statisticsStart && await prisma.performanceSnapshot.findFirst({ where: { assetId: asset.id, channelId: channel.id, statisticsStart } })) {
         errors.push({ row: rowNumber, field: 'statisticsStart', message: '同素材、渠道与周期的数据已存在' });
       }
-      Object.assign(row, { assetId: asset?.id, channelId: channel?.id, statisticsStart, spend, paidRoi });
+      Object.assign(row, { assetId: asset?.id, channelId: channel?.id, statisticsStart, statisticsEnd, ...values });
     }
   }
   return { rows, errors, warnings };
@@ -619,9 +629,18 @@ const importRows = async (body) => {
               assetId: row.assetId,
               channelId: row.channelId,
               statisticsStart: row.statisticsStart,
-              statisticsEnd: row.statisticsStart,
+              statisticsEnd: row.statisticsEnd,
               spend: row.spend,
               paidRoi: row.paidRoi,
+              gmv: row.gmv,
+              impressions: row.impressions,
+              plays: row.plays,
+              clicks: row.clicks,
+              productClicks: row.productClicks,
+              addToCart: row.addToCart,
+              payments: row.payments,
+              ctr: row.ctr,
+              cvr: row.cvr,
               dataSource: `导入批次 ${batch.id}`,
               metricDefinitionVersion: '待确认',
               importBatchId: batch.id,
@@ -701,7 +720,7 @@ const handle = async (request, response) => {
         product: true,
         channels: { include: { channel: true } },
         versions: { orderBy: { versionNumber: 'asc' } },
-        snapshots: { orderBy: { statisticsStart: 'desc' }, take: 1, include: { channel: true } },
+        snapshots: { orderBy: { statisticsStart: 'asc' }, take: 120, include: { channel: true } },
         timelines: { orderBy: { createdAt: 'desc' }, take: 1, include: { points: { orderBy: { second: 'asc' } } } },
       },
       orderBy: { updatedAt: 'desc' },
