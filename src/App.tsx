@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Archive, BarChart3, BookOpen, CheckCircle2, ChevronRight, ClipboardCheck, Database,
-  FileUp, FileVideo, Goal as GoalIcon, Grid2X2, LayoutDashboard, LineChart, List,
+  FileUp, Grid2X2, LayoutDashboard, LineChart, List,
   LoaderCircle, Pencil, Play, Plus, RefreshCcw, Search, Settings2, ShieldAlert,
   Sparkles, TableProperties, TriangleAlert, X,
 } from 'lucide-react'
@@ -11,20 +11,20 @@ import { parseLocalImportFile, type ParsedLocalFile } from './lib/fileParser'
 import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product } from './types'
 import './App.css'
 
-type Page = 'dashboard' | 'goals' | 'products' | 'assets' | 'import' | 'analysis' | 'review' | 'report' | 'metrics' | 'asset-detail'
+type Page = 'data-overview' | 'import' | 'creative-analysis' | 'comparison' | 'weekly-review' | 'benchmark' | 'metrics' | 'reports' | 'dashboard' | 'goals' | 'products' | 'assets' | 'analysis' | 'review' | 'report' | 'asset-detail' | 'asset-admin'
 type AppData = { products: Product[]; assets: Asset[]; goals: Goal[]; channels: Channel[]; imports: ImportBatch[] }
 
 const nav: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
-  { id: 'dashboard', label: '工作驾驶舱', icon: LayoutDashboard },
-  { id: 'goals', label: '经营目标', icon: GoalIcon },
-  { id: 'products', label: '产品知识', icon: BookOpen },
-  { id: 'assets', label: '素材资产', icon: FileVideo },
+  { id: 'data-overview', label: '数据总览', icon: LayoutDashboard },
   { id: 'import', label: '数据导入', icon: FileUp },
-  { id: 'analysis', label: '表现分析', icon: BarChart3 },
-  { id: 'review', label: '素材复盘', icon: ClipboardCheck },
-  { id: 'report', label: '周会报告', icon: TableProperties },
-  { id: 'metrics', label: '指标口径', icon: Settings2 },
+  { id: 'creative-analysis', label: '单条素材分析', icon: LineChart },
+  { id: 'comparison', label: '素材对比', icon: BarChart3 },
+  { id: 'weekly-review', label: '周度复盘', icon: ClipboardCheck },
+  { id: 'benchmark', label: '竞品对标', icon: BookOpen },
+  { id: 'metrics', label: '指标词典', icon: Settings2 },
+  { id: 'reports', label: '历史报告', icon: Archive },
 ]
+const legacyPages = new Set<Page>(['dashboard', 'goals', 'products', 'assets', 'analysis', 'review', 'report', 'asset-detail', 'asset-admin'])
 const emptyData: AppData = { products: [], assets: [], goals: [], channels: [], imports: [] }
 const reportSections = ['目标完成情况', '素材生产', '渠道经营', '内容行为', '素材案例', '版本迭代', '下周动作']
 const contentSegments = [
@@ -37,8 +37,9 @@ const contentSegments = [
 
 function routeFromHash() {
   const raw = window.location.hash.replace(/^#/, '')
-  const [page = 'dashboard', id] = raw.split('/')
-  return { page: nav.some((item) => item.id === page) || page === 'asset-detail' ? page as Page : 'dashboard', id }
+  const [rawPage = 'data-overview', id] = raw.split('/')
+  const page = rawPage === 'dashboard' ? 'data-overview' : rawPage
+  return { page: nav.some((item) => item.id === page) || legacyPages.has(page as Page) ? page as Page : 'data-overview', id }
 }
 
 function App() {
@@ -126,28 +127,31 @@ function App() {
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <div className="brand"><Sparkles size={20} /><span>SleepFlow</span><small>内部工作站</small></div>
+      <div className="brand"><Sparkles size={20} /><span>SleepFlow Studio</span><small>渠道素材数据分析与复盘工作台</small></div>
       <div className="demo-flag">匿名演示 seed · 本地 SQLite</div>
       <nav>{nav.map(({ id, label, icon: Icon }) => <button key={id} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={18} />{label}</button>)}</nav>
       <div className="sidebar-foot"><ShieldAlert size={16} />不连接渠道后台</div>
     </aside>
     <main>
       <header className="toolbar">
-        <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索素材、产品或目标" /></label>
+        <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索素材、渠道或数据来源" /></label>
         <div className="toolbar-meta"><EvidenceBadge source="本地 SQLite" status="匿名演示" /><StatusBadge status={loadError ? '连接异常' : '本地运行'} /></div>
       </header>
       <section className="workarea">
         {loading ? <LoadingState /> : loadError ? <ErrorState message={loadError} retry={reload} /> : <>
-          {page === 'dashboard' && <Dashboard data={data} navigate={navigate} newProduct={() => setProductEditor(null)} newAsset={() => setAssetEditor(null)} />}
+          {page === 'data-overview' && <DataOverview data={data} navigate={navigate} />}
           {page === 'goals' && <Goals rows={data.goals} edit={setGoalEditor} refresh={reload} notify={setToast} />}
           {page === 'products' && <Products rows={data.products} edit={setProductEditor} refresh={reload} notify={setToast} />}
           {page === 'assets' && <Assets rows={filteredAssets} channels={data.channels} navigate={navigate} edit={setAssetEditor} />}
           {page === 'import' && <ImportCenter batches={data.imports} refresh={reload} notify={setToast} />}
-          {page === 'analysis' && <Analysis assets={data.assets} channels={data.channels} navigate={navigate} />}
+          {page === 'creative-analysis' && <CreativeAnalysis assets={filteredAssets} navigate={navigate} />}
+          {(page === 'comparison' || page === 'analysis') && <Analysis assets={data.assets} channels={data.channels} navigate={navigate} />}
           {page === 'review' && <Review assets={data.assets} />}
-          {page === 'report' && <WeeklyReport />}
+          {(page === 'weekly-review' || page === 'report') && <WeeklyReport />}
+          {page === 'benchmark' && <Benchmark navigate={navigate} />}
           {page === 'metrics' && <Metrics />}
-          {page === 'asset-detail' && selectedAsset && <AssetDetail asset={selectedAsset} edit={() => setAssetEditor(selectedAsset)} refresh={reload} notify={setToast} />}
+          {page === 'reports' && <HistoryReports navigate={navigate} />}
+          {(page === 'asset-detail' || page === 'asset-admin') && selectedAsset && <AssetDetail asset={selectedAsset} edit={() => setAssetEditor(selectedAsset)} refresh={reload} notify={setToast} />}
         </>}
       </section>
     </main>
@@ -169,40 +173,58 @@ function ErrorState({ message, retry }: { message: string; retry: () => Promise<
   return <div className="error-state"><TriangleAlert size={32} /><h1>本地数据服务未连接</h1><p>{message}</p><button className="primary" onClick={() => void retry()}><RefreshCcw size={17} />重新连接</button></div>
 }
 
-function Dashboard({ data, navigate, newProduct, newAsset }: { data: AppData; navigate: (page: Page, id?: string) => void; newProduct: () => void; newAsset: () => void }) {
+function DataOverview({ data, navigate }: { data: AppData; navigate: (page: Page, id?: string) => void }) {
   const [channel, setChannel] = useState('全部渠道')
   const [product, setProduct] = useState('全部产品')
   const filtered = data.assets.filter((asset) => (channel === '全部渠道' || asset.channels.some((item) => item.channel.name === channel)) && (product === '全部产品' || asset.product?.name === product))
+  const withSnapshot = filtered.filter((asset) => asset.snapshots.length > 0)
+  const incomplete = filtered.filter((asset) => asset.snapshots.length === 0)
   return <>
-    <PageHeader title="工作驾驶舱" subtitle="本地数据概览；筛选只作用于当前驾驶舱，不替代业务判断。" actions={<>
-      <button className="outline" onClick={newProduct}><Plus size={17} />新增产品</button>
-      <button className="outline" onClick={newAsset}><Plus size={17} />新增素材</button>
-      <button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入数据</button>
+    <PageHeader title="数据总览" subtitle="先把数据交给系统，再基于已导入的来源、周期与口径进行分析。当前所有内容均为匿名演示数据。" actions={<>
+      <button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入表格或数据</button>
+      <button className="outline" onClick={() => navigate('creative-analysis')}><LineChart size={17} />开始单条分析</button>
+      <button className="outline" onClick={() => navigate('weekly-review')}><ClipboardCheck size={17} />创建周度复盘</button>
     </>} />
     <div className="filter-bar">
-      <label>时间范围<select defaultValue="本周"><option>本周</option><option>本月</option><option disabled>自定义（尚未接入）</option></select></label>
+      <label>当前分析周期<select defaultValue="本周"><option>本周</option><option>本月</option><option disabled>自定义（尚未接入）</option></select></label>
       <label>渠道<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>全部渠道</option>{data.channels.map((item) => <option key={item.id}>{item.name}</option>)}</select></label>
       <label>产品<select value={product} onChange={(event) => setProduct(event.target.value)}><option>全部产品</option>{data.products.map((item) => <option key={item.id}>{item.name}</option>)}</select></label>
-      <span><Database size={15} />匿名演示 seed · SQLite</span>
+      <span><Database size={15} />来源：匿名演示 seed · 数据完整度待确认</span>
     </div>
     <div className="metric-grid">
-      <Metric label="有效产品档案" value={String(data.products.length).padStart(2, '0')} tone="cyan" />
-      <Metric label="经营目标" value={String(data.goals.length).padStart(2, '0')} tone="orange" />
-      <Metric label="筛选后素材" value={String(filtered.length).padStart(2, '0')} tone="green" />
+      <Metric label="素材数量" value={String(filtered.length).padStart(2, '0')} tone="cyan" />
+      <Metric label="已有有效数据的素材" value={String(withSnapshot.length).padStart(2, '0')} tone="green" />
+      <Metric label="数据不足素材" value={String(incomplete.length).padStart(2, '0')} tone="orange" />
       <Metric label="导入批次" value={String(data.imports.length).padStart(2, '0')} tone="blue" />
     </div>
     <div className="dashboard-grid">
-      <section className="panel"><div className="section-head"><h2>今日重点</h2><small>真实入口</small></div>
+      <section className="panel"><div className="section-head"><h2>从数据开始</h2><small>不需要先建立产品或素材档案</small></div>
         {[
-          ['补充产品核验资料', () => navigate('products')],
-          ['确认导入字段映射', () => navigate('import')],
-          ['查看待优化素材', () => navigate('assets')],
+          ['导入表格并确认字段映射', () => navigate('import')],
+          ['选择一条已有素材，查看数据与逐秒曲线', () => navigate('creative-analysis')],
+          ['查看指标含义、公式与当前口径状态', () => navigate('metrics')],
         ].map(([label, action], index) => <button className="task" key={String(label)} onClick={action as () => void}><b>0{index + 1}</b><span>{String(label)}</span><ChevronRight size={17} /></button>)}
       </section>
-      <section className="panel media-rail"><div className="section-head"><h2>高潜素材与版本</h2><small>按最新状态</small></div><div>{filtered.slice(0, 3).map((asset) => <button className="asset-thumb" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><i /><strong>{asset.assetCode}</strong><span>{versionLabel(asset)} · {assetStatus(asset.status)}</span></button>)}</div></section>
+      <section className="panel media-rail"><div className="section-head"><h2>本周素材分布</h2><small>只呈现已导入或已关联快照的记录</small></div><div>{filtered.slice(0, 3).map((asset) => <button className="asset-thumb" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}><i /><strong>{asset.assetCode}</strong><span>{channelNames(asset)} · {asset.snapshots.length ? '可分析' : '数据不足'}</span></button>)}</div></section>
     </div>
-    <section className="panel table-panel"><div className="section-head"><h2>日常观察</h2><small>数据周期：最近一次快照</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section>
+    <section className="panel table-panel"><div className="section-head"><h2>可进入分析的素材</h2><small>数据周期与来源在进入后单独说明</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section>
   </>
+}
+
+function CreativeAnalysis({ assets, navigate }: { assets: Asset[]; navigate: (page: Page, id?: string) => void }) {
+  return <>
+    <PageHeader title="单条素材分析" subtitle="选择已导入的素材数据，查看经营指标、逐秒曲线、数据事实与待验证假设。" actions={<button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入素材数据</button>} />
+    <Notice>本页面不要求先创建素材档案。当前只展示已导入或匿名演示数据；缺少逐秒曲线、数据周期或来源时会明确标记为数据不足。</Notice>
+    {assets.length ? <section className="panel table-panel"><div className="section-head"><h2>选择一条素材开始分析</h2><small>点击“分析”后查看数据来源、周期与证据</small></div><AssetTable rows={assets} navigate={navigate} /></section> : <EmptyState title="尚无可分析素材" detail="请先导入单条素材表格、逐秒数据或相关截图；截图识别将在下一阶段接入人工校对流程。" />}
+  </>
+}
+
+function Benchmark({ navigate }: { navigate: (page: Page, id?: string) => void }) {
+  return <><PageHeader title="竞品对标" subtitle="仅比较用户提供并确认来源、周期与口径的数据；不会预设品牌名称或伪造竞品指标。" actions={<button className="primary" onClick={() => navigate('import')}><FileUp size={17} />导入竞品数据</button>} /><EmptyState title="尚未导入竞品资料" detail="下一阶段将支持竞品截图、表格、素材链接记录与人工拆解表；口径不一致时仅做内容结构对比，不做数值优劣判断。" /></>
+}
+
+function HistoryReports({ navigate }: { navigate: (page: Page, id?: string) => void }) {
+  return <><PageHeader title="历史报告" subtitle="历史报告将在周度复盘保存能力接入后显示；当前不会伪造可下载或已保存的报告。" actions={<button className="outline" onClick={() => navigate('weekly-review')}><TableProperties size={17} />进入周度复盘</button>} /><EmptyState title="暂无已保存报告" detail="目前周度复盘仍是会话草稿。保存、导出和历史归档将在后续阶段接入。" /></>
 }
 
 function Products({ rows, edit, refresh, notify }: { rows: Product[]; edit: (product: Product | null) => void; refresh: () => Promise<void>; notify: (message: string) => void }) {
@@ -367,7 +389,7 @@ function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; re
   }
 
   return <>
-    <PageHeader title="数据导入中心" subtitle="CSV/XLSX 在本机解析；预览、映射、校验通过后才写入 SQLite，并保留批次历史。" />
+    <PageHeader title="数据导入" subtitle="先把表格数据交给系统。CSV/XLSX 在本机解析；预览、映射、口径确认和人工确认后才写入 SQLite。" />
     <div className="steps">{['上传', '预览', '字段映射', '口径确认', '数据校验', '人工确认', '导入报告'].map((step, index) => <div key={step} className={(status === 'idle' ? 0 : status === 'ready' ? 2 : status === 'validated' ? 5 : status === 'done' ? 6 : 1) >= index ? 'current' : ''}><b>{index + 1}</b>{step}</div>)}</div>
     <div className="import-layout">
       <section className="panel import-zone">
@@ -396,7 +418,7 @@ function Analysis({ assets, channels, navigate }: { assets: Asset[]; channels: C
   const gmv = withSnapshot.reduce((sum, asset) => sum + (asset.snapshots[0].gmv || 0), 0)
   const roi = spend ? gmv / spend : null
   return <>
-    <PageHeader title="表现分析中心" subtitle="使用 SQLite 中最近一次匿名演示快照；不同口径不直接比较。" />
+    <PageHeader title="素材对比" subtitle="使用已导入快照比较素材表现；不同渠道或口径不一致时不直接给出数值优劣结论。" />
     <div className="filter-bar"><label>渠道<select value={channel} onChange={(event) => setChannel(event.target.value)}><option>全部渠道</option>{channels.map((item) => <option key={item.id}>{item.name}</option>)}</select></label><label>时间<select defaultValue="最近快照"><option>最近快照</option><option disabled>自定义区间（尚未接入）</option></select></label><span><Database size={15} />数据来源：匿名演示 seed</span></div>
     <Notice>阈值与指标口径仍待内部确认；空值不会参与平均或被解释为 0。</Notice>
     <div className="metric-grid"><Metric label="有快照素材" value={String(withSnapshot.length)} /><Metric label="演示 GMV" value={gmv ? gmv.toFixed(0) : '—'} /><Metric label="演示消耗" value={spend ? spend.toFixed(0) : '—'} /><Metric label="演示 ROI" value={roi ? roi.toFixed(2) : '—'} /></div>
@@ -417,14 +439,14 @@ function Review({ assets }: { assets: Asset[] }) {
 function WeeklyReport() {
   const [week, setWeek] = useState('2026-07-06')
   return <>
-    <PageHeader title="周会报告" subtitle="匿名演示章节可编辑为会话草稿；数据库保存与安全导出尚未接入。" actions={<><button className="outline" disabled>导出 · 尚未接入</button><button className="primary" disabled>保存 · 尚未接入</button></>} />
+    <PageHeader title="周度复盘" subtitle="将数据事实、数据口径、表现较好素材、待优化素材和下周验证方向分开记录；保存与导出尚未接入。" actions={<><button className="outline" disabled>导出 · 尚未接入</button><button className="primary" disabled>保存 · 尚未接入</button></>} />
     <div className="filter-bar"><label>自然周<input type="date" value={week} onChange={(event) => setWeek(event.target.value)} /></label><span><TriangleAlert size={15} />会话草稿，刷新后不保留</span></div>
     <div className="report-layout">{reportSections.map((section, index) => <section className="panel report-section" key={section}><span>0{index + 1}</span><div><h2>{section}</h2><textarea aria-label={`${section}内容`} defaultValue={index === 0 ? '月度进度、周度完成、每日趋势、目标差额和风险项。' : '匿名演示 seed · 需要补充数据来源、口径状态和人工结论。'} /></div><StatusBadge status={index === 4 ? '数据不足' : '待确认'} /></section>)}</div>
   </>
 }
 
 function Metrics() {
-  return <><PageHeader title="指标口径中心" subtitle="本阶段只读；新增与版本化后端尚未接入。" actions={<button className="primary" disabled><Plus size={17} />新增口径 · 尚未接入</button>} /><section className="panel table-panel"><table><thead><tr><th>指标</th><th>渠道</th><th>状态</th><th>来源</th><th>说明</th></tr></thead><tbody>{['GMV', '支付 ROI', 'CTR', 'CVR'].map((metric) => <tr key={metric}><td><strong>{metric}</strong></td><td>全部渠道</td><td><StatusBadge status="待确认" /></td><td><EvidenceBadge source="匿名演示 seed" /></td><td>原始字段、时间范围与流量范围待内部确认</td></tr>)}</tbody></table></section></>
+  return <><PageHeader title="指标词典" subtitle="查看每个指标的含义、来源和当前口径状态。支付 ROI、净成交 ROI 与其他 ROI 不会被默认视为同一指标。" /><section className="panel table-panel"><table><thead><tr><th>指标</th><th>渠道</th><th>状态</th><th>来源</th><th>说明</th></tr></thead><tbody>{['GMV', '支付 ROI', 'CTR', 'CVR'].map((metric) => <tr key={metric}><td><strong>{metric}</strong></td><td>全部渠道</td><td><StatusBadge status="待确认" /></td><td><EvidenceBadge source="匿名演示 seed" /></td><td>原始字段、时间范围与流量范围待内部确认</td></tr>)}</tbody></table></section></>
 }
 
 function AssetDetail({ asset, edit, refresh, notify }: { asset: Asset; edit: () => void; refresh: () => Promise<void>; notify: (message: string) => void }) {
