@@ -19,7 +19,7 @@ The accompanying Codex plugin is named `clipcommerce-analyst`. It guides evidenc
 - [x] Current workspace history and tracked files inspected for local runtime data; no tracked `.env`, database, spreadsheet, media, or real export files found.
 - [x] `typecheck`, `lint`, `test`, `build`, Prisma schema validation, and a custom-platform dry-run import verified locally.
 - [x] Production audit high-risk `brace-expansion` transitive chain remediated by a lockfile-only compatible update.
-- [ ] Maintainer selects an open-source license. Until then, public code remains all-rights-reserved.
+- [x] Apache-2.0 license, NOTICE, and bilingual use-boundary disclaimer added. The disclaimer does not override non-excludable legal obligations.
 - [ ] Create the public GitHub repository, enable private Security Advisories and Discussions, push `main`, then create the `v0.1.0` release.
 
 ## Data boundary / 数据边界

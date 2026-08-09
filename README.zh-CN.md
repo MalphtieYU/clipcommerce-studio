@@ -2,7 +2,7 @@
 
 **把视频电商导出数据变成可解释复盘的本地优先工作台。**
 
-[English](README.md) · [使用指南](docs/使用指南.md) · [User guide](docs/USAGE.md) · [指标词典](docs/metric-dictionary.md) · [安全说明](SECURITY.md) · [参与贡献](CONTRIBUTING.zh-CN.md)
+[English](README.md) · [使用指南](docs/使用指南.md) · [User guide](docs/USAGE.md) · [指标词典](docs/metric-dictionary.md) · [使用边界](LEGAL_NOTICE.md) · [安全说明](SECURITY.md) · [参与贡献](CONTRIBUTING.zh-CN.md)
 
 ClipCommerce Studio 面向短视频创作者、电商运营和增长团队，帮助你查看素材从曝光、观看、点击，到加购、订单、成交额和投放回报的完整链路。它只分析你主动导出的文件，**不会**登录、抓取或控制任何平台账户。
 
@@ -47,7 +47,7 @@ npm.cmd run build
 - 不同平台的播放阈值、归因窗口和收入定义并不相同。比较前必须确认平台、统计周期、投放范围和归因定义可比。
 - ROI/ROAS 不是利润。如需评估利润，还要单独纳入退款、平台费用、折扣、履约等成本。
 
-详见[隐私与安全说明](docs/privacy-and-security.md)和[安全漏洞披露方式](SECURITY.md)。
+详见[隐私与安全说明](docs/privacy-and-security.md)、[使用边界与免责声明](LEGAL_NOTICE.md)和[安全漏洞披露方式](SECURITY.md)。
 
 ## 平台口径说明
 
@@ -61,6 +61,6 @@ npm.cmd run build
 - 行为准则：[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - 安全漏洞：[SECURITY.md](SECURITY.md)
 
-## 许可证
+## 许可证与边界
 
-当前尚未选定许可证。在维护者添加许可证前，仓库内容保留全部权利；请勿再分发、打包发布或用于商业复用。
+本项目采用 [Apache-2.0](LICENSE)。它允许在许可证条件下使用、修改和再分发，并包含“按现状”提供及责任限制条款。本项目不提供托管服务、支持承诺、平台背书、经营结果保证或专业意见。依赖本项目之前，请阅读完整的[使用边界与免责声明](LEGAL_NOTICE.md)。

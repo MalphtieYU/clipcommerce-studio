@@ -2,7 +2,7 @@
 
 **A local-first workspace for turning video-commerce exports into an explainable performance review.**
 
-[简体中文](README.zh-CN.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Metric dictionary](docs/metric-dictionary.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[简体中文](README.zh-CN.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Metric dictionary](docs/metric-dictionary.md) · [Use boundaries](LEGAL_NOTICE.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
 ClipCommerce Studio helps creators, e-commerce operators, and growth teams examine the path from video exposure to clicks, orders, revenue, and advertising return. It works from files you export yourself; it does **not** sign in to, scrape, or control any platform account.
 
@@ -47,7 +47,7 @@ For importing a file, metric definitions, mapping advice, troubleshooting, and i
 - Different platforms use different view thresholds, attribution windows, and revenue definitions. Compare only rows with a compatible platform, reporting period, delivery scope, and attribution definition.
 - ROI/ROAS is not profit. Include refunds, fees, discounts, and fulfilment costs separately when you need profitability.
 
-See [privacy and security details](docs/privacy-and-security.md) and [responsible disclosure](SECURITY.md).
+See [privacy and security details](docs/privacy-and-security.md), [use boundaries and disclaimer](LEGAL_NOTICE.md), and [responsible disclosure](SECURITY.md).
 
 ## Platform measurement notes
 
@@ -65,6 +65,6 @@ This is a self-hosted local analytics workspace, not a hosted service. Public-re
 - Expected conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 - Security vulnerabilities: [SECURITY.md](SECURITY.md)
 
-## License
+## License and boundaries
 
-No license has been selected yet. Until the maintainer adds one, all rights are reserved. Do not redistribute, repackage, or commercially reuse the repository content.
+Licensed under [Apache-2.0](LICENSE). It permits use, modification, and redistribution under its terms, including its “AS IS” warranty disclaimer and liability limitation. The project does not provide a hosted service, support commitment, platform affiliation, outcome guarantee, or professional advice. Read the full [use boundaries and disclaimer](LEGAL_NOTICE.md) before relying on it.
