@@ -1,0 +1,3 @@
+-- SQLite stores both Prisma enums and String fields as TEXT. This schema-only
+-- migration makes channel codes extensible for public installations while
+-- preserving all existing channel and import batch values.

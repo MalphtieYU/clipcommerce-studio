@@ -24,11 +24,26 @@ const sourceTypeAliases = new Map([
   ['二次剪辑', 'REEDIT'], ['REEDIT', 'REEDIT'],
   ['导入', 'IMPORTED'], ['IMPORTED', 'IMPORTED'],
 ]);
+const channelDefinitions = new Map([
+  ['DOUYIN', '抖音'], ['TIKTOK_SHOP', 'TikTok Shop'], ['TMALL', '天猫'], ['JD', '京东'],
+  ['SHOPIFY', 'Shopify'], ['META', 'Meta Ads'], ['YOUTUBE', 'YouTube / Google Ads'], ['AMAZON', 'Amazon'],
+]);
 const channelAliases = new Map([
   ['抖音', 'DOUYIN'], ['DOUYIN', 'DOUYIN'],
-  ['天猫', 'TMALL'], ['TMALL', 'TMALL'],
-  ['京东', 'JD'], ['JD', 'JD'],
+  ['TIKTOK', 'TIKTOK_SHOP'], ['TIKTOK SHOP', 'TIKTOK_SHOP'], ['TIKTOK_SHOP', 'TIKTOK_SHOP'],
+  ['天猫', 'TMALL'], ['TMALL', 'TMALL'], ['淘宝', 'TMALL'],
+  ['京东', 'JD'], ['JD', 'JD'], ['SHOPIFY', 'SHOPIFY'],
+  ['META', 'META'], ['META ADS', 'META'], ['FACEBOOK', 'META'], ['INSTAGRAM', 'META'],
+  ['YOUTUBE', 'YOUTUBE'], ['GOOGLE ADS', 'YOUTUBE'], ['AMAZON', 'AMAZON'],
 ]);
+const normalizeChannel = (value) => {
+  const name = nullableText(value);
+  if (!name || name.length > 80) return null;
+  const alias = channelAliases.get(name.toUpperCase()) || channelAliases.get(name);
+  if (alias) return { code: alias, name: channelDefinitions.get(alias) || name };
+  const suffix = [...name].map((character) => character.codePointAt(0).toString(36)).join('').slice(0, 34);
+  return { code: `CUSTOM_${suffix}`, name };
+};
 const categoryAliases = new Map([
   ['素材产量', 'ASSET_OUTPUT'], ['ASSET_OUTPUT', 'ASSET_OUTPUT'],
   ['GMV', 'GMV'], ['消耗', 'SPEND'], ['SPEND', 'SPEND'],
@@ -48,11 +63,19 @@ const fieldAliases = {
   sourceType: ['sourceType', '素材来源'],
   productName: ['productName', '产品名称'],
   channel: ['channel', '渠道'],
+  accountId: ['accountId', '账户 ID', '广告账户 ID'],
+  campaignId: ['campaignId', 'campaign_name', 'campaign_id', '广告计划', '广告组', '广告系列'],
   statisticsStart: ['statisticsStart', '数据周期开始', 'statistics_start'],
   statisticsEnd: ['statisticsEnd', '数据周期结束', 'statistics_end'],
+  orderCount: ['orderCount', '订单数', 'purchases', 'purchase_count'],
+  transactionAmount: ['transactionAmount', '成交金额', '销售额', 'revenue'],
   spend: ['spend', '消耗'],
   paidRoi: ['paidRoi', '支付ROI', '支付 ROI', 'paid_roi'],
+  totalRoi: ['totalRoi', '总 ROI', 'ROAS', 'roas'],
   gmv: ['gmv', '成交金额', '支付金额', 'GMV', 'transaction_amount'],
+  cpm: ['cpm', 'CPM', '千次展示成本'],
+  cpc: ['cpc', 'CPC', '平均点击成本'],
+  cpa: ['cpa', 'CPA', '单次转化成本'],
   impressions: ['impressions', '展示数', '展现量'],
   plays: ['plays', '播放数', '播放量'],
   clicks: ['clicks', '点击数', '点击量'],
@@ -65,7 +88,7 @@ const fieldAliases = {
 const typeFields = {
   'monthly-goals': ['name', 'category', 'periodStart', 'targetValue'],
   'asset-metadata': ['assetCode', 'displayName', 'externalMaterialId', 'durationSeconds', 'sourceType', 'productName', 'channel'],
-  'asset-performance': ['assetCode', 'displayName', 'externalMaterialId', 'channel', 'statisticsStart', 'statisticsEnd', 'spend', 'paidRoi', 'gmv', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'],
+  'asset-performance': ['assetCode', 'displayName', 'externalMaterialId', 'channel', 'accountId', 'campaignId', 'statisticsStart', 'statisticsEnd', 'orderCount', 'transactionAmount', 'spend', 'paidRoi', 'totalRoi', 'gmv', 'cpm', 'cpc', 'cpa', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'],
 };
 
 const json = (response, status, payload) => {
@@ -587,31 +610,34 @@ const validateImport = async (dataType, inputRows) => {
       } else {
         warnings.push({ row: rowNumber, field: 'productName', message: '未提供产品关联' });
       }
-      const channelCode = nullableText(row.channel) ? channelAliases.get(String(row.channel).trim().toUpperCase()) || channelAliases.get(String(row.channel).trim()) : null;
-      if (nullableText(row.channel) && !channelCode) errors.push({ row: rowNumber, field: 'channel', message: '无法匹配渠道' });
-      Object.assign(row, { assetCode, displayName, externalMaterialId, durationSeconds, sourceType, productId, channelCode });
+      const channelInfo = nullableText(row.channel) ? normalizeChannel(row.channel) : null;
+      if (nullableText(row.channel) && !channelInfo) errors.push({ row: rowNumber, field: 'channel', message: '渠道名称无效' });
+      Object.assign(row, { assetCode, displayName, externalMaterialId, durationSeconds, sourceType, productId, channelCode: channelInfo?.code || null, channelName: channelInfo?.name || null });
     }
 
     if (dataType === 'asset-performance') {
       const assetCode = nullableText(row.assetCode)?.toUpperCase();
       const displayName = nullableText(row.displayName);
       const externalMaterialId = nullableText(row.externalMaterialId);
-      const channelCode = channelAliases.get(String(row.channel || '').trim().toUpperCase()) || channelAliases.get(String(row.channel || '').trim());
+      const accountId = nullableText(row.accountId);
+      const campaignId = nullableText(row.campaignId);
+      const channelInfo = normalizeChannel(row.channel);
+      const channelCode = channelInfo?.code || null;
       const statisticsStart = nullableDate(row.statisticsStart);
       const statisticsEnd = nullableDate(row.statisticsEnd) || statisticsStart;
-      const numericFields = ['spend', 'paidRoi', 'gmv', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'];
+      const numericFields = ['orderCount', 'transactionAmount', 'spend', 'paidRoi', 'totalRoi', 'gmv', 'cpm', 'cpc', 'cpa', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'];
       const values = Object.fromEntries(numericFields.map((key) => [key, nullableNumber(row[key])]));
       const asset = assetCode ? await prisma.asset.findUnique({ where: { assetCode } }) : null;
       const channel = channelCode ? await prisma.channel.findUnique({ where: { code: channelCode } }) : null;
       if (!assetCode || !/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(assetCode)) errors.push({ row: rowNumber, field: 'assetCode', message: '素材编号格式无效' });
       if (!asset && !displayName) errors.push({ row: rowNumber, field: 'displayName', message: '素材不存在时，需要提供素材名称以创建素材记录' });
-      if (!channel) errors.push({ row: rowNumber, field: 'channel', message: '无法匹配渠道' });
+      if (!channelInfo) errors.push({ row: rowNumber, field: 'channel', message: '渠道名称无效' });
       if (!statisticsStart) errors.push({ row: rowNumber, field: 'statisticsStart', message: '日期格式无效' });
       for (const [key, value] of Object.entries(values)) if (Number.isNaN(value)) errors.push({ row: rowNumber, field: key, message: '必须为数字或空值' });
       if (asset && channel && statisticsStart && await prisma.performanceSnapshot.findFirst({ where: { assetId: asset.id, channelId: channel.id, statisticsStart } })) {
         errors.push({ row: rowNumber, field: 'statisticsStart', message: '同素材、渠道与周期的数据已存在' });
       }
-      Object.assign(row, { assetId: asset?.id, assetCode, displayName, externalMaterialId, channelId: channel?.id, statisticsStart, statisticsEnd, ...values });
+      Object.assign(row, { assetId: asset?.id, assetCode, displayName, externalMaterialId, accountId, campaignId, channelCode, channelName: channelInfo?.name || null, channelId: channel?.id, statisticsStart, statisticsEnd, ...values });
     }
   }
   return { rows, errors, warnings };
@@ -639,6 +665,18 @@ const importRows = async (body) => {
   try {
     await prisma.$transaction(async (tx) => {
       const createdAssetIdsByCode = new Map();
+      const ensuredChannelsByCode = new Map();
+      const ensureChannel = async (row) => {
+        if (!row.channelCode) return null;
+        if (ensuredChannelsByCode.has(row.channelCode)) return ensuredChannelsByCode.get(row.channelCode);
+        const channel = await tx.channel.upsert({
+          where: { code: row.channelCode },
+          update: {},
+          create: { code: row.channelCode, name: row.channelName || row.channelCode, description: '用户导入的渠道；请在指标词典中确认该平台口径。' },
+        });
+        ensuredChannelsByCode.set(row.channelCode, channel);
+        return channel;
+      };
       for (const row of validation.rows) {
         if (dataType === 'monthly-goals') {
           const goal = await tx.goal.create({
@@ -662,6 +700,7 @@ const importRows = async (body) => {
           created.goals.push(goal.id);
         }
         if (dataType === 'asset-metadata') {
+          const channel = await ensureChannel(row);
           const asset = await tx.asset.create({
             data: {
               assetCode: row.assetCode,
@@ -672,13 +711,15 @@ const importRows = async (body) => {
               productId: row.productId,
               status: 'DRAFT',
               tags: ['本地导入'],
-              channels: row.channelCode ? { create: [{ channel: { connect: { code: row.channelCode } } }] } : undefined,
+              channels: channel ? { create: [{ channel: { connect: { id: channel.id } } }] } : undefined,
               versions: { create: [{ versionNumber: 1, changeSummary: '由素材元数据导入创建', durationSeconds: row.durationSeconds }] },
             },
           });
           created.assets.push(asset.id);
         }
         if (dataType === 'asset-performance') {
+          const channel = await ensureChannel(row);
+          const channelId = channel?.id || row.channelId;
           let assetId = row.assetId || createdAssetIdsByCode.get(row.assetCode);
           if (!assetId) {
             const asset = await tx.asset.create({
@@ -689,7 +730,7 @@ const importRows = async (body) => {
                 sourceType: 'IMPORTED',
                 status: 'INSUFFICIENT_DATA',
                 tags: ['截图整理导入'],
-                channels: { create: [{ channel: { connect: { id: row.channelId } } }] },
+                channels: { create: [{ channel: { connect: { id: channelId } } }] },
                 versions: { create: [{ versionNumber: 1, changeSummary: '由截图整理的素材表现导入创建', durationSeconds: null }] },
               },
             });
@@ -700,12 +741,20 @@ const importRows = async (body) => {
           const snapshot = await tx.performanceSnapshot.create({
             data: {
               assetId,
-              channelId: row.channelId,
+              channelId,
+              accountId: row.accountId,
+              campaignId: row.campaignId,
               statisticsStart: row.statisticsStart,
               statisticsEnd: row.statisticsEnd,
+              orderCount: row.orderCount,
+              transactionAmount: row.transactionAmount,
               spend: row.spend,
               paidRoi: row.paidRoi,
+              totalRoi: row.totalRoi,
               gmv: row.gmv,
+              cpm: row.cpm,
+              cpc: row.cpc,
+              cpa: row.cpa,
               impressions: row.impressions,
               plays: row.plays,
               clicks: row.clicks,
@@ -803,7 +852,7 @@ const handle = async (request, response) => {
   if (request.method === 'POST' && pathname === '/api/assets') {
     const body = await readJson(request);
     const data = assetPayload(body);
-    const channelCodes = arrayValue(body.channelCodes).filter((code) => channelAliases.has(code)).map((code) => channelAliases.get(code));
+    const channelCodes = arrayValue(body.channelCodes).map((code) => channelAliases.get(code.toUpperCase()) || code).filter((code) => /^[A-Z0-9_]{2,48}$/.test(code));
     const asset = await prisma.asset.create({
       data: {
         ...data,
@@ -835,7 +884,7 @@ const handle = async (request, response) => {
   if (assetId && request.method === 'PUT') {
     const body = await readJson(request);
     const data = assetPayload(body);
-    const channelCodes = arrayValue(body.channelCodes).filter((code) => channelAliases.has(code)).map((code) => channelAliases.get(code));
+    const channelCodes = arrayValue(body.channelCodes).map((code) => channelAliases.get(code.toUpperCase()) || code).filter((code) => /^[A-Z0-9_]{2,48}$/.test(code));
     const asset = await prisma.asset.update({
       where: { id: assetId },
       data: {
@@ -955,7 +1004,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(JSON.stringify({ service: 'sleepflow-local-api', url: `http://${host}:${port}`, database: process.env.DATABASE_URL }));
+  console.log(JSON.stringify({ service: 'clipcommerce-local-api', url: `http://${host}:${port}`, database: process.env.DATABASE_URL }));
 });
 
 const shutdown = async () => {

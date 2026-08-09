@@ -6,8 +6,13 @@ const demoSource = '匿名演示 seed';
 
 const channels = [
   { code: 'DOUYIN', name: '抖音', description: '匿名演示渠道' },
+  { code: 'TIKTOK_SHOP', name: 'TikTok Shop', description: '匿名演示渠道' },
   { code: 'TMALL', name: '天猫', description: '匿名演示渠道' },
   { code: 'JD', name: '京东', description: '匿名演示渠道' },
+  { code: 'SHOPIFY', name: 'Shopify', description: '匿名演示渠道' },
+  { code: 'META', name: 'Meta Ads', description: '匿名演示渠道' },
+  { code: 'YOUTUBE', name: 'YouTube / Google Ads', description: '匿名演示渠道' },
+  { code: 'AMAZON', name: 'Amazon', description: '匿名演示渠道' },
 ];
 
 const products = [
@@ -15,7 +20,7 @@ const products = [
     id: 'demo-product-a',
     name: '演示产品 A',
     model: 'DEMO-A',
-    series: '匿名睡眠系列',
+    series: '匿名电商系列',
     brand: '匿名品牌',
     status: 'PENDING_CONFIRMATION',
     confirmedClaims: ['暂无已确认卖点'],
@@ -29,7 +34,7 @@ const products = [
     id: 'demo-product-b',
     name: '演示产品 B',
     model: 'DEMO-B',
-    series: '匿名睡眠系列',
+    series: '匿名电商系列',
     brand: '匿名品牌',
     status: 'PENDING_CONFIRMATION',
     confirmedClaims: ['暂无已确认卖点'],

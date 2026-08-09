@@ -42,7 +42,7 @@ function isUserAnalysisAsset(asset: Asset) {
   return asset.snapshots.some((snapshot) => !isDemoDataSource(snapshot.dataSource))
 }
 
-const userImportStorageKey = 'sleepflow-user-import-batch-ids'
+const userImportStorageKey = 'clipcommerce-user-import-batch-ids'
 
 function userImportedBatchIds() {
   try {
@@ -150,7 +150,7 @@ function App() {
 
   return <div className="app-shell">
     <aside className="sidebar">
-      <div className="brand"><Sparkles size={20} /><span>SleepFlow Studio</span><small>渠道素材数据分析与复盘工作台</small></div>
+      <div className="brand"><Sparkles size={20} /><span>ClipCommerce Studio</span><small>视频电商数据分析与复盘工作台</small></div>
       <div className="demo-flag">本地工作区 · 未导入数据时不显示分析结果</div>
       <nav>{nav.map(({ id, label, icon: Icon }) => <button key={id} className={page === id ? 'active' : ''} onClick={() => navigate(id)}><Icon size={18} />{label}</button>)}</nav>
       <div className="sidebar-foot"><ShieldAlert size={16} />不连接渠道后台</div>
@@ -372,12 +372,14 @@ const importFieldSets = {
     ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['durationSeconds', '时长（秒）'], ['sourceType', '素材来源'], ['productName', '产品名称'], ['channel', '渠道'],
   ],
   'asset-performance': [
-    ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['channel', '渠道（抖音/天猫）'], ['statisticsStart', '数据周期开始'], ['statisticsEnd', '数据周期结束'], ['spend', '消耗'], ['impressions', '展示数/展现量'], ['plays', '播放数'], ['clicks', '点击数'], ['productClicks', '商品点击数'], ['addToCart', '加购人数/数'], ['payments', '支付买家数/订单数'], ['gmv', '成交/支付金额'], ['ctr', '点击率（小数，如 0.025）'], ['cvr', '转化率（小数，如 0.08）'], ['paidRoi', '支付 ROI'],
+    ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['channel', '平台/渠道'], ['accountId', '广告账户 ID'], ['campaignId', '广告计划/系列'], ['statisticsStart', '数据周期开始'], ['statisticsEnd', '数据周期结束'], ['impressions', '展示数/展现量'], ['plays', '播放数/观看数'], ['clicks', '点击数'], ['productClicks', '商品点击数'], ['addToCart', '加购人数/数'], ['payments', '支付买家数/订单数'], ['orderCount', '订单数'], ['transactionAmount', '成交金额/销售额'], ['gmv', 'GMV/支付金额'], ['spend', '广告消耗'], ['ctr', '点击率（小数，如 0.025）'], ['cvr', '转化率（小数，如 0.08）'], ['cpm', '千次展示成本'], ['cpc', '平均点击成本'], ['cpa', '单次转化成本'], ['paidRoi', '支付 ROI'], ['totalRoi', 'ROAS/总 ROI'],
   ],
 } as const
 
 const screenshotHeaderAliases: Record<string, string> = {
-  material_id: 'assetCode', material_name: 'displayName', statistics_start: 'statisticsStart', statistics_end: 'statisticsEnd', transaction_amount: 'gmv', paid_roi: 'paidRoi',
+  material_id: 'assetCode', material_name: 'displayName', statistics_start: 'statisticsStart', statistics_end: 'statisticsEnd',
+  transaction_amount: 'gmv', paid_roi: 'paidRoi', account_id: 'accountId', campaign_id: 'campaignId', campaign_name: 'campaignId',
+  purchase_count: 'orderCount', purchases: 'orderCount', revenue: 'transactionAmount', roas: 'totalRoi',
 }
 
 function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; refresh: () => Promise<void>; notify: (message: string) => void }) {
@@ -386,7 +388,7 @@ function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; re
   const [parsed, setParsed] = useState<ParsedLocalFile | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
   const [statisticsFallbackDate, setStatisticsFallbackDate] = useState('')
-  const [channelFallback, setChannelFallback] = useState<'抖音' | '天猫'>('抖音')
+  const [channelFallback, setChannelFallback] = useState('抖音')
   const [issues, setIssues] = useState<{ errors: ImportIssue[]; warnings: ImportIssue[] }>({ errors: [], warnings: [] })
   const [status, setStatus] = useState<'idle' | 'parsing' | 'ready' | 'validated' | 'importing' | 'done'>('idle')
   const [message, setMessage] = useState<string | null>(null)
@@ -477,7 +479,7 @@ function ImportCenter({ batches, refresh, notify }: { batches: ImportBatch[]; re
         <FileUp size={32} /><h2>选择本地文件</h2><p>支持 CSV、XLSX；最大 50MB、10,000 行、40 列。优先读取无公式数据页；当前导入页的公式与隐藏结构会被拒绝。</p>
         <label className="file-button">选择文件<input aria-label="选择导入文件" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => event.target.files?.[0] && void chooseFile(event.target.files[0])} /></label>
         <label className="compact-field">导入类型<select value={dataType} onChange={(event) => { setDataType(event.target.value as keyof typeof importFieldSets); setParsed(null); setStatus('idle'); setMessage('导入类型已切换，请重新选择文件。') }}><option value="monthly-goals">月度目标</option><option value="asset-metadata">素材元数据</option><option value="asset-performance">素材表现 / 截图整理</option><option disabled>逐秒互动（下一阶段）</option></select></label>
-        {dataType === 'asset-performance' && <><label className="compact-field">截图对应投放渠道<select value={channelFallback} onChange={(event) => { setChannelFallback(event.target.value as '抖音' | '天猫'); setStatus('ready') }}><option value="抖音">抖音</option><option value="天猫">天猫</option></select><small>仅补充原表为空的渠道；已有渠道不会被改写。</small></label><label className="compact-field">截图对应统计日期<input type="date" value={statisticsFallbackDate} onChange={(event) => { setStatisticsFallbackDate(event.target.value); setStatus('ready') }} /><small>当截图中没有日期或只是占位值时，由你补充；不会自动编造。</small></label></>}
+        {dataType === 'asset-performance' && <><label className="compact-field">截图对应投放渠道<select value={channelFallback} onChange={(event) => { setChannelFallback(event.target.value); setStatus('ready') }}><option value="抖音">抖音</option><option value="TikTok Shop">TikTok Shop</option><option value="天猫">天猫</option><option value="京东">京东</option><option value="Shopify">Shopify</option><option value="Meta Ads">Meta Ads</option><option value="YouTube">YouTube / Google Ads</option><option value="Amazon">Amazon</option></select><small>仅补充原表为空的渠道；已有渠道不会被改写，其他渠道可在原表直接填写。</small></label><label className="compact-field">截图对应统计日期<input type="date" value={statisticsFallbackDate} onChange={(event) => { setStatisticsFallbackDate(event.target.value); setStatus('ready') }} /><small>当截图中没有日期或只是占位值时，由你补充；不会自动编造。</small></label></>}
         {status === 'parsing' || status === 'importing' ? <div className="busy"><LoaderCircle className="spin" />{status === 'importing' ? '正在写入本地数据库…' : '正在本地解析/校验…'}</div> : null}
         {message && <Notice>{message}</Notice>}
       </section>

@@ -1,6 +1,6 @@
 export type Channel = {
   id: string
-  code: 'DOUYIN' | 'TMALL' | 'JD'
+  code: string
   name: string
 }
 
@@ -36,8 +36,14 @@ export type Snapshot = {
   statisticsStart: string
   statisticsEnd: string
   spend: number | null
+  orderCount?: number | null
+  transactionAmount?: number | null
   paidRoi: number | null
+  totalRoi?: number | null
   gmv: number | null
+  cpm?: number | null
+  cpc?: number | null
+  cpa?: number | null
   ctr: number | null
   cvr: number | null
   impressions: number | null

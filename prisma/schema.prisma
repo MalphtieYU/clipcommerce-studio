@@ -7,12 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum ChannelCode {
-  DOUYIN
-  TMALL
-  JD
-}
-
 enum RecordStatus {
   DRAFT
   ACTIVE
@@ -197,7 +191,7 @@ model Product {
 
 model Channel {
   id          String      @id @default(cuid())
-  code        ChannelCode @unique
+  code        String      @unique
   name        String
   description String?
   createdAt   DateTime    @default(now())
@@ -447,7 +441,7 @@ model ImportBatch {
   filename        String
   sourceType      String
   dataType        String
-  channelCode     ChannelCode?
+  channelCode     String?
   status          ImportStatus @default(UPLOADED)
   mappingSnapshot Json?
   validationSummary Json?
