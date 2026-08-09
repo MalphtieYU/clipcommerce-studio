@@ -17,4 +17,3 @@ After the repository is published, use GitHub’s private Security Advisory flow
 As of 2026-08-09, production-only `npm audit` reports **two moderate advisories** inherited through `exceljs` → `uuid`. The available automated remediation would downgrade `exceljs` to a breaking version and has not been applied. The application does not pass caller-controlled buffers to UUID APIs, and spreadsheet inputs are parsed locally with type, size, row, formula, and validation controls; this reduces but does not eliminate dependency risk. Keep the project local, do not expose the local API to the public internet, and update or replace the dependency when a compatible upstream fix becomes available.
 
 截至 2026-08-09，生产依赖的 `npm audit` 仍报告两项由 `exceljs` → `uuid` 引入的中风险告警。自动修复会将 `exceljs` 降级为破坏性版本，因此未执行。项目不会把调用者可控缓冲区传入 UUID API；表格仅在本地解析，且有文件类型、大小、行数、公式和字段校验。这能降低但不能消除依赖风险。请保持服务本地运行，勿将本地 API 暴露到公网；上游出现兼容修复后应及时升级或替换依赖。
-

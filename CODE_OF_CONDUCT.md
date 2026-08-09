@@ -22,4 +22,3 @@ Harassment, discrimination, threats, doxxing, sharing confidential data, and del
 Maintainers may remove, edit, or reject contributions that violate this policy. After publication, report conduct concerns privately through the repository’s Security Advisory flow when a public issue would increase harm. Do not use that channel for ordinary product disagreements.
 
 维护者可移除、编辑或拒绝违反本准则的贡献。公开仓库创建后，如公开讨论会扩大伤害，请通过仓库的私有 Security Advisory 流程报告行为问题；普通产品分歧请勿使用该渠道。
-

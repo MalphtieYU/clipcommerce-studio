@@ -31,4 +31,3 @@ Keep changes focused. Update both English and Chinese user-facing documentation 
 - A maintainer reviews security, data boundaries, metric definitions, and documentation before merge.
 
 For a vulnerability, use the private process in [SECURITY.md](SECURITY.md), not a pull request or public issue.
-

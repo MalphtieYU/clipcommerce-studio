@@ -16,4 +16,3 @@
 ## Where to ask / 在哪里提问
 
 After publication, use GitHub Discussions for usage questions and the issue templates for confirmed bugs or feature proposals. Suspected vulnerabilities must be reported privately under [SECURITY.md](SECURITY.md), not in a public issue.
-

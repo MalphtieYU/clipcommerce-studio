@@ -66,4 +66,3 @@ Never send confidential exports to a remote assistant or third-party service unl
 | Database commands fail | Keep the database local, run `npm.cmd run db:check`, and include the redacted error output in a support request. |
 
 For unresolved issues, see [SUPPORT.md](../SUPPORT.md). For a suspected vulnerability, do **not** file a public bug; follow [SECURITY.md](../SECURITY.md).
-
