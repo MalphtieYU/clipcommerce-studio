@@ -1,0 +1,18 @@
+{
+  "name": "clipcommerce-analyst",
+  "version": "0.1.0",
+  "description": "Evidence-led video commerce data analysis for local CSV/XLSX exports.",
+  "author": {
+    "name": "ClipCommerce Studio"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ClipCommerce Analyst",
+    "shortDescription": "Analyze video-commerce exports with evidence and safe metric definitions.",
+    "longDescription": "Maps local video, advertising and commerce exports into a transparent funnel analysis, with platform definitions and action hypotheses.",
+    "developerName": "ClipCommerce Studio",
+    "category": "Productivity",
+    "capabilities": [],
+    "defaultPrompt": "Analyze my local video-commerce export. First verify the data and metric definitions, then identify funnel bottlenecks and propose testable next actions."
+  }
+}
