@@ -21,7 +21,7 @@ The accompanying Codex plugin is named `clipcommerce-analyst`. It guides evidenc
 - [x] Production audit high-risk `brace-expansion` transitive chain remediated by a lockfile-only compatible update.
 - [x] Apache-2.0 license, NOTICE, and bilingual use-boundary disclaimer added. The disclaimer does not override non-excludable legal obligations.
 - [x] Public repository created; Discussions, Issues, private vulnerability reporting, and review templates enabled.
-- [ ] Push the final `v0.1.0` release record and create the release tag.
+- [x] Final `v0.1.0` release published with an annotated tag and bilingual release notes.
 
 ## Data boundary / 数据边界
 
