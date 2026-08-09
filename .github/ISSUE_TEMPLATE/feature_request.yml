@@ -1,0 +1,29 @@
+name: Feature request / 功能建议
+description: Propose a focused improvement with a platform and data definition.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and intended user / 问题与目标用户
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed workflow / 建议工作流
+    validations:
+      required: true
+  - type: textarea
+    id: metric
+    attributes:
+      label: Platform, source, and metric definition / 平台、来源与指标口径
+      description: "Include attribution window and comparability limits. 请说明归因窗口和可比性限制。"
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Data and privacy impact / 数据与隐私影响
+      description: "Do not include real data. 不要提交真实数据。"

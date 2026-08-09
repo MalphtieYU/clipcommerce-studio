@@ -1,26 +1,35 @@
 # ClipCommerce Studio
 
-> 本地优先的视频电商增长分析工作台。用于把短视频、投放和成交数据放到同一个可复盘流程中，而不是替你访问平台账户或替你做经营决策。
+**A local-first workspace for turning video-commerce exports into an explainable performance review.**
 
-ClipCommerce Studio 面向做短视频、电商投放或内容增长的个人和团队。你可以导入自己从抖音、TikTok Shop、天猫、京东、Shopify、Meta Ads、YouTube / Google Ads、Amazon 或其他平台导出的 CSV/XLSX，检查素材从观看、点击到商品互动、订单和回报的变化。
+[简体中文](README.zh-CN.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Metric dictionary](docs/metric-dictionary.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
-## 能做什么
+ClipCommerce Studio helps creators, e-commerce operators, and growth teams examine the path from video exposure to clicks, orders, revenue, and advertising return. It works from files you export yourself; it does **not** sign in to, scrape, or control any platform account.
 
-- 本地解析、预览、字段映射、校验、确认写入和撤销导入；文件不发送给第三方。
-- 素材维度的观看、点击、商品点击、加购、支付、订单、GMV、消耗、CTR、CVR、CPM、CPC、CPA、ROI/ROAS 分析。
-- 保留平台、广告账户、广告计划、统计周期和数据来源，避免把不同归因口径硬放在一起比较。
-- 提供指标词典、趋势曲线和基于已导入数据的复盘入口；没有数据时不会伪造分析结论。
-- 附带 `clipcommerce-analyst` Codex Skill：让 Codex 用同一套证据、口径和行动建议框架分析你的导出表。
+> The project is ready for public-release preparation, but it is not yet an open-source release: the maintainer must select a license before the public repository is created.
 
-## 本地运行
+## What it does
+
+- Imports CSV and XLSX files locally, with field mapping, preview, validation, confirmation, and batch rollback.
+- Analyzes creative-level video and commerce metrics: impressions, views, clicks, product clicks, carts, payments, orders, GMV/revenue, spend, CTR, CVR, CPM, CPC, CPA, ROI/ROAS.
+- Keeps platform, account, campaign, period, attribution, and source context so unlike metrics are not silently compared.
+- Supports Douyin, TikTok Shop, Tmall, JD, Shopify, Meta Ads, YouTube/Google Ads, Amazon, and safely normalized custom platforms.
+- Explains metrics in the interface and provides trends and review prompts only when you have imported data—no invented dashboard results.
+- Includes the `clipcommerce-analyst` Codex plugin to structure analysis of your own exported data.
+
+## Quick start
+
+Requirements: Node.js 22+ and npm.
 
 ```powershell
+git clone <YOUR-REPOSITORY-URL>
+cd clipcommerce-studio
 npm.cmd install
 npm.cmd run db:setup
 npm.cmd run dev
 ```
 
-检查命令：
+Open the local address printed in the terminal (normally `http://127.0.0.1:5173`). To run the checks used by CI:
 
 ```powershell
 npm.cmd run typecheck
@@ -29,12 +38,33 @@ npm.cmd run test
 npm.cmd run build
 ```
 
-## 数据边界
+For importing a file, metric definitions, mapping advice, troubleshooting, and installation of the optional Codex plugin, read the [full user guide](docs/USAGE.md).
 
-- 仅导入你有权使用的数据；不要提交原始素材、客户信息、广告账户标识、截图、导出表或密钥。
-- 平台字段、归因窗口和成交口径并不天然相同。比较前务必统一平台、目标、日期、投放层级与归因定义。
-- 工作台不会连接、抓取或代替登录任何平台；它只分析你手动导入的文件。
+## Data and privacy boundaries
 
-## 公开发布前
+- Import only data you are authorized to use. Do not commit exports, customer data, source media, screenshots, account identifiers, or secrets.
+- The application is local-first. Imported file bodies are parsed by the local service and are not sent to a third party by this project.
+- Different platforms use different view thresholds, attribution windows, and revenue definitions. Compare only rows with a compatible platform, reporting period, delivery scope, and attribution definition.
+- ROI/ROAS is not profit. Include refunds, fees, discounts, and fulfilment costs separately when you need profitability.
 
-仓库尚未发布。公开发布前仍需完成：选择开源许可证、替换演示数据库、人工检查 Git 历史与公开文档、补充贡献与安全披露说明。详见 [公开发布计划](docs/public-release-plan.md)。
+See [privacy and security details](docs/privacy-and-security.md) and [responsible disclosure](SECURITY.md).
+
+## Platform measurement notes
+
+The field model deliberately keeps both video and commerce funnel data. TikTok Shop reporting can distinguish attributed and real-time purchase timing, while Google video reporting distinguishes impression, engagement, view, click, and conversion paths. Preserve the exported source, date range, and attribution field instead of treating them as identical metrics. See [platform metric sources](docs/platform-metric-sources.md).
+
+## Project status and roadmap
+
+This is a self-hosted local analytics workspace, not a hosted service. Public-release tasks, known dependency posture, and data-cleanliness checks are tracked in [the release plan](docs/public-release-plan.md).
+
+## Community
+
+- Questions and setup help: [SUPPORT.md](SUPPORT.md)
+- Bugs and feature ideas: use the GitHub issue templates after the repository is published.
+- Contributions: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Expected conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+- Security vulnerabilities: [SECURITY.md](SECURITY.md)
+
+## License
+
+No license has been selected yet. Until the maintainer adds one, all rights are reserved. Do not redistribute, repackage, or commercially reuse the repository content.

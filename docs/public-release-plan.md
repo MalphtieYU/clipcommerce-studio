@@ -1,34 +1,49 @@
-# ClipCommerce Studio 公开发布计划
+# Public release record / 公开发布记录
 
-## 产品定位
+## Product identity / 产品定位
 
-ClipCommerce Studio 是本地优先的视频电商分析工具，而不是某个品牌、店铺或平台的运营后台。它接收用户自己导出的表格，提供透明的字段映射、跨平台可比性检查、素材漏斗分析和复盘建议。
+**ClipCommerce Studio** is a local-first analysis workspace for video-commerce data. It is not a brand-specific operating console, a hosted SaaS product, an advertising-account connector, or a replacement for platform attribution and financial settlement.
 
-建议公开名称：**ClipCommerce Studio**。
+**ClipCommerce Studio** 是面向视频电商数据的本地优先分析工作台，不是某个品牌专属后台、SaaS 托管服务、广告账户连接器，也不替代平台归因或财务结算。
 
-- `Clip` 表示视频素材；`Commerce` 表示从内容到成交的完整链路。
-- Codex 可安装插件名：`clipcommerce-analyst`。
-- 不承诺替代平台原生归因、财务结算或专业的广告投放建议。
+The accompanying Codex plugin is named `clipcommerce-analyst`. It guides evidence-based analysis; it does not access a user’s accounts or make operating decisions for them.
 
-## 基于官方平台资料补充的通用需求
+随附的 Codex 插件名为 `clipcommerce-analyst`，用于组织基于证据的分析；它不会访问用户账户，也不会代替用户做经营决策。
 
-| 需求 | 已加入的公开版能力 | 注意事项 |
-| --- | --- | --- |
-| 视频吸引力与留存 | 导入展示、播放/观看、点击和视频观看质量字段；素材趋势与指标解释 | 不同平台的观看/播放门槛不同，不能混算。 |
-| 电商漏斗 | 商品点击、加购、支付、订单、成交金额/GMV 和转化率字段 | 每一层必须来自同一日期、同一维度和同一来源。 |
-| 广告效率 | 消耗、CPM、CPC、CPA、支付 ROI、ROAS | ROAS 不是利润；需标明收入和归因窗口。 |
-| 投放上下文 | 平台/渠道、广告账户、广告计划、统计起止日期 | 比较前须保持目标、版位、受众和归因规则可比。 |
-| 跨平台使用 | 内置抖音、TikTok Shop、天猫、京东、Shopify、Meta Ads、YouTube/Google Ads、Amazon，并允许自定义渠道 | 自定义渠道需要用户在指标词典中补充口径。 |
+## Release-readiness checklist / 发布检查清单
 
-TikTok Shop 官方报告将消耗、展示、点击、Shop ROAS、加购、购买、实时购买、视频观看分层和平均观看时长列为可用指标，并明确归因转化与实时转化按不同时间记录；因此公开版保留原始字段和统计周期，不自动把二者混为同一成交。 [TikTok Shop Ads reporting](https://ads.tiktok.com/help/article/view-shop-ads-reporting?lang=en) [TikTok Shop reporting time](https://ads.tiktok.com/help/article/about-tiktok-shop-ads-reporting-time?lang=en)
+- [x] Product UI and import model generalized beyond one brand or platform.
+- [x] Bilingual README, usage guides, setup guidance, metric interpretation, and troubleshooting added.
+- [x] Contribution, support, code-of-conduct, security, issue/PR templates, CI, and Dependabot configuration added.
+- [x] Git ignores local databases, exports, media, uploads, reports, environment files, and common secret-bearing material.
+- [x] Current workspace history and tracked files inspected for local runtime data; no tracked `.env`, database, spreadsheet, media, or real export files found.
+- [x] `typecheck`, `lint`, `test`, `build`, Prisma schema validation, and a custom-platform dry-run import verified locally.
+- [x] Production audit high-risk `brace-expansion` transitive chain remediated by a lockfile-only compatible update.
+- [ ] Maintainer selects an open-source license. Until then, public code remains all-rights-reserved.
+- [ ] Create the public GitHub repository, enable private Security Advisories and Discussions, push `main`, then create the `v0.1.0` release.
 
-YouTube / Google Ads 的官方资料把展示、观看、互动、点击、转化以及观看时长作为不同漏斗层；视频转化还应区分点击后、互动后和观看后口径。公开版因此新增投放层级和成本字段，并要求在分析中显示口径限制。 [YouTube Analytics](https://support.google.com/youtube/answer/9002587?hl=en) [Google Ads video conversion funnel](https://support.google.com/google-ads/answer/12262960?hl=en)
+## Data boundary / 数据边界
 
-## 发布前必须完成
+Only synthetic sample data and templates may enter the public repository. Never commit real exports, customer or order data, source video, screenshots, watermarks, account identifiers, API keys, tokens, local databases, logs, environment files, or internal reports.
 
-1. 选择并确认开源许可证（MIT、Apache-2.0 或其他）；未选择前不应声称为可自由复用的开源项目。
-2. 新建干净的公开仓库或彻底审查 Git 历史，确保没有真实数据库、表格、截图、素材、日志、环境变量或公司名称。
-3. 为安装、贡献、安全漏洞披露、数据处理边界和平台商标添加公开文档。
-4. 在干净目录进行从克隆到安装、导入匿名样例、撤销导入、卸载 Skill 的端到端测试。
-5. 处理或在安全公告中明确当前 `npm audit` 报告的 3 项高风险、3 项中风险依赖问题；不使用 `npm audit fix --force` 进行未经验证的破坏性降级。
-6. 由项目负责人确认名称、许可证、维护者身份、支持范围和 GitHub 仓库可见性后，才创建远程仓库与发布版本。
+公开仓库只能包含合成样例和模板。不得提交真实导出表、客户或订单数据、源视频、截图、水印、账户标识、API 密钥、令牌、本地数据库、日志、环境变量文件或内部报告。
+
+## Measurement integrity / 指标口径完整性
+
+The app supports video exposure/attention, traffic, commerce, and efficiency fields because platforms expose distinct stages. TikTok Shop documents spend, impressions, clicks, Shop ROAS, cart, purchase, real-time purchase, video-view depth, and average watch-time fields; it also distinguishes attributed and real-time reporting timing. Google/YouTube document separate impression, engagement, view, click, and conversion paths. The product therefore preserves platform, account, campaign, period, source, and attribution context instead of collapsing all events into one universal conversion metric.
+
+应用同时支持视频曝光/注意力、流量、电商和效率字段，因为平台会分别定义这些阶段。TikTok Shop 官方列出消耗、展示、点击、Shop ROAS、加购、购买、实时购买、视频观看分层和平均观看时长，并区分归因与实时的报表计时；Google/YouTube 也会区分展示、互动、观看、点击和转化路径。因此产品保留平台、账户、计划、周期、来源与归因上下文，避免将所有事件压成一个“通用转化”指标。
+
+Sources: [TikTok Shop Ads reporting](https://ads.tiktok.com/help/article/view-shop-ads-reporting?lang=en), [TikTok Shop reporting time](https://ads.tiktok.com/help/article/about-tiktok-shop-ads-reporting-time?lang=en), [YouTube Analytics metrics](https://support.google.com/youtube/answer/9002587?hl=en), and [Google Ads video conversion measurement](https://support.google.com/google-ads/answer/12262960).
+
+## Dependency note / 依赖说明
+
+On 2026-08-09, `npm audit --omit=dev` reports two moderate advisories through `exceljs` → `uuid`. The only automated remediation requires a breaking downgrade of `exceljs`, so it was intentionally not applied. The risk and mitigations are described in [SECURITY.md](../SECURITY.md). This must be reassessed before each release.
+
+截至 2026-08-09，`npm audit --omit=dev` 仍报告两项由 `exceljs` → `uuid` 引入的中风险告警。唯一自动修复会破坏性降级 `exceljs`，因此没有执行。风险与缓解措施见 [SECURITY.md](../SECURITY.md)，并且每次发布前都必须重新评估。
+
+## Why these repository files exist / 为什么补充这些仓库文件
+
+The public structure follows widely adopted GitHub community-health practice: a clear README, license, code of conduct, contribution guide, security policy, support route, and issue/PR templates make use and maintenance expectations explicit. GitHub documents these files as the components of a healthy community profile; n8n’s public contribution guide is an example of an explicit local-development and change-review workflow. See [GitHub’s community-profile guidance](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/about-community-profiles-for-public-repositories), [GitHub’s default community files](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/creating-a-default-community-health-file), and [n8n’s contributing guide](https://github.com/n8n-io/n8n/blob/master/CONTRIBUTING.md).
+
+公开结构参考了 GitHub 社区健康实践：清晰的 README、许可证、行为准则、贡献指南、安全政策、支持路径和 Issue/PR 模板，让使用与维护的预期可被公开审查。GitHub 将这些文件列为健康社区资料；n8n 的公开贡献指南则展示了明确的本地开发和变更审查流程。

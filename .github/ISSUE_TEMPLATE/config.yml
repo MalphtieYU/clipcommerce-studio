@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage and setup support / 使用与安装支持
+    url: https://github.com/MalphtieYU/clipcommerce-studio/discussions
+    about: Ask usage and setup questions in Discussions. / 在 Discussions 中提问使用与安装问题。
