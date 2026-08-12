@@ -2,6 +2,18 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased — Workspace-agent data collaboration
+
+### Added / 新增
+
+- Added an on-demand local collaboration packet that combines a team work context with non-demo imported assets, strategy labels, performance snapshots, channel-native summaries, data gaps, and prior advisory feedback.
+- Added a workspace UI action to generate and copy that packet only when the user explicitly chooses to share it with an authorized agent.
+- Excluded environment variables, local file references, advertising-account identifiers, customer-level data, and demo snapshots from the collaboration packet.
+
+### Changed / 调整
+
+- Clarified that the local workspace remains the data and review foundation, while the optional skill organizes and improves already-authorized data rather than replacing the workspace.
+
 ## Unreleased — Skill-first, non-disruptive adoption
 
 ### Changed / 调整

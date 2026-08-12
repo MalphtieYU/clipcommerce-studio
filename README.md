@@ -1,18 +1,20 @@
 # ClipCommerce Studio
 
-**An optional, non-disruptive skill kit that helps existing agents understand team work, improve it with evidence, and preserve current projects and workflows.**
+**A local data and review workspace, paired with an optional non-disruptive skill that helps existing agents organize evidence and improve work without replacing current projects or workflows.**
 
-[简体中文](README.zh-CN.md) · [Skill-first adoption](docs/skill-first-adoption.md) · [中文使用方式](docs/skill-first-adoption.zh-CN.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Team-agent contexts](docs/team-agent-context.md) · [Douyin creative workflow](docs/douyin-creative-operations.md) · [Metric dictionary](docs/metric-dictionary.md) · [Use boundaries](LEGAL_NOTICE.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[简体中文](README.zh-CN.md) · [Workspace-agent loop](docs/agent-collaboration-loop.md) · [中文协作闭环](docs/agent-collaboration-loop.zh-CN.md) · [Skill adoption](docs/skill-first-adoption.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Team-agent contexts](docs/team-agent-context.md) · [Douyin creative workflow](docs/douyin-creative-operations.md) · [Metric dictionary](docs/metric-dictionary.md) · [Use boundaries](LEGAL_NOTICE.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
-ClipCommerce Studio is skill-first: its main public artifact is an opt-in plugin that helps an existing agent understand a team's work, identify evidence and gaps, and propose small, human-approved improvements. It does **not** replace the agent, alter existing projects, collect information in the background, or run external actions. The local workspace is optional for teams that want local records or export analysis.
+ClipCommerce Studio combines two optional layers: a local workspace keeps a team's existing imports, creative records, review notes, and data definitions together; an opt-in plugin helps an existing agent turn those already-authorized records into clear evidence, gaps, and human-approved suggestions. It does **not** replace the agent, alter existing projects, collect information in the background, or run external actions.
 
-> The project is ready for public-release preparation, but it is not yet an open-source release: the maintainer must select a license before the public repository is created.
+> This is a public, local-first project. Its plugin and workspace remain optional; review the use boundaries before sharing any data with an agent or third party.
 
-## Use it without disruption
+## Workspace + agent, without disruption
 
-Install or point your agent to `plugins/clipcommerce-analyst`, then use `$adaptive-work-improvement`. Start in Observe mode. The skill will not require a dashboard, an upload, or a rewritten workflow unless that is genuinely needed and you explicitly approve it.
+Use the workspace only where it adds value: it can receive local imports and records that a team already maintains. When an agent needs that information, open **Team Work Context** and explicitly generate a collaboration packet. The packet excludes environment variables, local file paths, account identifiers, customer-level data, and demo snapshots; it includes data-readiness gaps so an agent does not guess.
 
-Read the [skill-first adoption guide](docs/skill-first-adoption.md) for the safe starter prompt and installation path.
+Install or point your agent to `plugins/clipcommerce-analyst`, then use `$adaptive-work-improvement` with the packet and the current task. Start in Observe mode. The skill does not require a dashboard, an upload, or a rewritten workflow unless that is genuinely needed and explicitly approved.
+
+Read the [workspace-agent collaboration loop](docs/agent-collaboration-loop.md) for the data handoff, and the [skill adoption guide](docs/skill-first-adoption.md) for the safe starter prompt and installation path.
 
 ## Optional companion capabilities
 

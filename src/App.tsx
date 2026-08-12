@@ -278,12 +278,25 @@ const listFromForm = (value: FormDataEntryValue | null) => String(value || '').s
 function WorkContexts({ rows, edit, refresh, notify }: { rows: WorkContext[]; edit: (context: WorkContext | null) => void; refresh: () => Promise<void>; notify: (message: string) => void }) {
   const [selectedId, setSelectedId] = useState(rows[0]?.id || '')
   const [brief, setBrief] = useState<Record<string, unknown> | null>(null)
+  const [packet, setPacket] = useState<Record<string, unknown> | null>(null)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const selected = rows.find((row) => row.id === selectedId) || rows[0]
   const loadBrief = async () => {
     if (!selected) return
     setBrief(await localApi.workContexts.agentBrief(selected.id))
     notify('已生成可交给智能体的本地上下文摘要')
+  }
+  const loadPacket = async () => {
+    if (!selected) return
+    setPacket(await localApi.workContexts.collaborationPacket(selected.id))
+    notify('协作数据包已按当前本地记录生成；请仅分享给已授权的智能体')
+  }
+  const copyPacket = async () => {
+    if (!packet) return
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(packet, null, 2))
+      notify('协作数据包已复制，可粘贴给已授权的智能体')
+    } catch { notify('浏览器未授予剪贴板权限，请从下方手动复制数据包') }
   }
   const addFeedback = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -308,11 +321,12 @@ function WorkContexts({ rows, edit, refresh, notify }: { rows: WorkContext[]; ed
   }
   return <>
     <PageHeader title="团队工作上下文" subtitle="用最小信息让各部门的智能体理解当前工作；它提供参考、发现缺口和提出建议，不替人自动改流程或执行外部动作。" actions={<button className="primary" onClick={() => edit(null)}><Plus size={17} />新建团队上下文</button>} />
-    <Notice>最少只需要填写团队名称和当前目标。任务、资料来源、成功标准、约束和智能体边界均为可选；未填写时，智能体必须把它视为“待补充”，而不是自行假设。</Notice>
+    <Notice>工作台负责保存已导入的真实素材、表现、目标与上下文；你主动生成“协作数据包”后，智能体才获得一份精简、带缺口提示的数据副本。它不需要重新上传数据，也不会自动接管流程。</Notice>
     {!rows.length ? <section className="panel empty-workspace"><EmptyState title="还没有团队工作上下文" detail="为渠道、内容、投放或其他部门建立一条轻量上下文。之后可将系统生成的摘要交给各自的智能体，并回收有证据的反馈。" /><div className="empty-actions"><button className="primary" onClick={() => edit(null)}>建立第一条上下文</button></div></section> : <div className="contexts-layout">
-      <section className="panel context-list">{rows.map((row) => <button key={row.id} className={row.id === selected?.id ? 'selected-context' : ''} onClick={() => { setSelectedId(row.id); setBrief(null) }}><strong>{row.name}</strong><span>{row.department || '未填写部门'} · {row.feedback.length} 条反馈</span><small>{row.objective}</small></button>)}</section>
-      {selected && <section className="context-detail"><section className="panel"><div className="section-head"><div><h2>{selected.name}</h2><small>{selected.department || '部门待填写'} · 最近更新 {formatDate(selected.updatedAt)}</small></div><div className="context-actions"><button className="outline" onClick={() => void loadBrief()}>生成智能体摘要</button><button className="icon-button" aria-label="编辑团队上下文" onClick={() => edit(selected)}><Pencil size={16} /></button></div></div><h3>当前目标</h3><p className="context-objective">{selected.objective}</p><ContextList title="当前任务" values={selected.currentTasks} empty="未限定任务，智能体应先澄清范围。" /><ContextList title="可用资料来源" values={selected.informationSources} empty="未填写；智能体不可假定已获取外部资料。" /><ContextList title="成功信号" values={selected.successSignals} empty="未填写；智能体应建议可衡量、可复核的信号。" /><ContextList title="约束与边界" values={selected.constraints} empty="未填写；仍受系统安全与用户授权边界约束。" /><div className="context-boundary"><b>对智能体的补充边界</b><p>{selected.agentBoundary || '仅作为参考上下文；不自动执行、修改或对外发送。'}</p></div><button className="danger-outline compact" onClick={() => void archive()}>归档此上下文</button></section>
-        {brief && <section className="panel agent-brief"><div className="section-head"><div><h2>给智能体的上下文摘要</h2><small>复制时请遵守团队的资料权限与隐私要求</small></div></div><pre>{JSON.stringify(brief, null, 2)}</pre></section>}
+      <section className="panel context-list">{rows.map((row) => <button key={row.id} className={row.id === selected?.id ? 'selected-context' : ''} onClick={() => { setSelectedId(row.id); setBrief(null); setPacket(null) }}><strong>{row.name}</strong><span>{row.department || '未填写部门'} · {row.feedback.length} 条反馈</span><small>{row.objective}</small></button>)}</section>
+      {selected && <section className="context-detail"><section className="panel"><div className="section-head"><div><h2>{selected.name}</h2><small>{selected.department || '部门待填写'} · 最近更新 {formatDate(selected.updatedAt)}</small></div><div className="context-actions"><button className="outline" onClick={() => void loadPacket()}>生成协作数据包</button><button className="outline" onClick={() => void loadBrief()}>仅上下文摘要</button><button className="icon-button" aria-label="编辑团队上下文" onClick={() => edit(selected)}><Pencil size={16} /></button></div></div><h3>当前目标</h3><p className="context-objective">{selected.objective}</p><ContextList title="当前任务" values={selected.currentTasks} empty="未限定任务，智能体应先澄清范围。" /><ContextList title="可用资料来源" values={selected.informationSources} empty="未填写；智能体不可假定已获取外部资料。" /><ContextList title="成功信号" values={selected.successSignals} empty="未填写；智能体应建议可衡量、可复核的信号。" /><ContextList title="约束与边界" values={selected.constraints} empty="未填写；仍受系统安全与用户授权边界约束。" /><div className="context-boundary"><b>对智能体的补充边界</b><p>{selected.agentBoundary || '仅作为参考上下文；不自动执行、修改或对外发送。'}</p></div><button className="danger-outline compact" onClick={() => void archive()}>归档此上下文</button></section>
+        {packet && <section className="panel agent-brief"><div className="section-head"><div><h2>给智能体的协作数据包</h2><small>已汇总当前工作上下文、非演示素材/表现、策略标签、已记录反馈和数据缺口</small></div><button className="outline" onClick={() => void copyPacket()}>复制数据包</button></div><Notice>此数据包由你主动生成；不含环境变量、文件路径、账户标识、客户级数据或演示快照。分享前仍请确认接收智能体和目的地已获授权。</Notice><pre>{JSON.stringify(packet, null, 2)}</pre></section>}
+        {!packet && brief && <section className="panel agent-brief"><div className="section-head"><div><h2>给智能体的上下文摘要</h2><small>只含团队工作说明，不含本地业务数据</small></div></div><pre>{JSON.stringify(brief, null, 2)}</pre></section>}
         <section className="panel"><div className="section-head"><div><h2>智能体反馈记录</h2><small>所有反馈均为建议，必须人工确认后才可落地。</small></div></div>{selected.feedback.length ? <div className="feedback-list">{selected.feedback.map((feedback) => <article key={feedback.id}><div><StatusBadge status={feedbackCategoryLabel(feedback.category)} /><small>{feedback.agentName || '未署名智能体'} · {formatDateTime(feedback.createdAt)} · {feedback.confidence || '置信度未标注'}</small></div><p>{feedback.summary}</p>{feedback.evidence.length > 0 && <ContextList title="依据" values={feedback.evidence} empty="" />}{feedback.recommendations.length > 0 && <ContextList title="建议（待人工确认）" values={feedback.recommendations} empty="" />}</article>)}</div> : <EmptyState title="尚未收到反馈" detail="由智能体提交“理解、优势、改进、数据缺口或适配建议”，并写明依据。" />}</section>
         <section className="panel"><div className="section-head"><div><h2>记录一条智能体反馈</h2><small>用于接收其他部门/工具的结构化回传，不触发自动执行。</small></div></div><form className="context-feedback-form" onSubmit={(event) => void addFeedback(event)}><label>智能体名称<input name="agentName" placeholder="例如：内容分析助手" /></label><label>反馈类别<select name="category" defaultValue="UNDERSTANDING">{feedbackCategoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>置信度<select name="confidence" defaultValue="MEDIUM"><option value="HIGH">高</option><option value="MEDIUM">中</option><option value="LOW">低</option></select></label><label className="span-3">反馈摘要<textarea name="summary" required placeholder="说明你理解到的情况、判断或风险。不要把推测写成事实。" /></label><label className="span-3">依据（每行一条）<textarea name="evidence" placeholder="来自哪份已授权资料、数据导入或用户说明；没有依据请明确写待补充。" /></label><label className="span-3">适配/改进建议（每行一条）<textarea name="recommendations" placeholder="写成需要人工确认的建议，不要声称已经改动流程。" /></label>{feedbackError && <div className="form-error span-3">{feedbackError}</div>}<button className="primary">保存待确认反馈</button></form></section>
       </section>}

@@ -56,6 +56,7 @@ export const localApi = {
     update: (id: string, body: unknown) => api<WorkContext>(`/api/work-contexts/${id}`, { method: 'PUT', body }),
     archive: (id: string) => api<{ ok: boolean }>(`/api/work-contexts/${id}`, { method: 'DELETE' }),
     agentBrief: (id: string) => api<Record<string, unknown>>(`/api/work-contexts/${id}/agent-brief`),
+    collaborationPacket: (id: string) => api<Record<string, unknown>>(`/api/work-contexts/${id}/collaboration-packet`),
     addFeedback: (id: string, body: unknown) => api<ContextFeedback>(`/api/work-contexts/${id}/feedback`, { method: 'POST', body }),
   },
 }

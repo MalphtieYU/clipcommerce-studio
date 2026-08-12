@@ -1,18 +1,20 @@
 # ClipCommerce Studio
 
-**一个可选、非侵入的 Skill 工具包：帮助现有智能体理解团队工作、基于证据提出改进，同时保护原有项目与流程。**
+**一个本地数据与复盘工作台，搭配可选、非侵入的 Skill：让现有智能体整理证据、提出改进，同时保护原有项目与流程。**
 
-[English](README.md) · [Skill 优先使用方式](docs/skill-first-adoption.zh-CN.md) · [English guide](docs/skill-first-adoption.md) · [使用指南](docs/使用指南.md) · [User guide](docs/USAGE.md) · [团队智能体上下文](docs/team-agent-context.md) · [抖音创意实验工作流](docs/douyin-creative-operations.md) · [指标词典](docs/metric-dictionary.md) · [使用边界](LEGAL_NOTICE.md) · [安全说明](SECURITY.md) · [参与贡献](CONTRIBUTING.zh-CN.md)
+[English](README.md) · [工作台与智能体协作闭环](docs/agent-collaboration-loop.zh-CN.md) · [English loop](docs/agent-collaboration-loop.md) · [Skill 使用方式](docs/skill-first-adoption.zh-CN.md) · [使用指南](docs/使用指南.md) · [User guide](docs/USAGE.md) · [团队智能体上下文](docs/team-agent-context.md) · [抖音创意实验工作流](docs/douyin-creative-operations.md) · [指标词典](docs/metric-dictionary.md) · [使用边界](LEGAL_NOTICE.md) · [安全说明](SECURITY.md) · [参与贡献](CONTRIBUTING.zh-CN.md)
 
-ClipCommerce Studio 现在以 Skill 为主：公开交付物是一个可选插件，用来帮助现有智能体理解团队工作、发现证据与缺口，并提出小而可验证、需人工确认的改进建议。它**不会**替换智能体、改动既有项目、在后台收集信息或执行外部动作。本地工作台仅作为需要本地记录或数据分析的团队的可选伴侣。
+ClipCommerce Studio 由两个可选层组成：本地工作台保存团队既有的导入数据、素材记录、复盘信息和指标口径；可选插件帮助现有智能体把这些已授权信息整理为清晰证据、数据缺口和需人工确认的建议。它**不会**替换智能体、改动既有项目、在后台收集信息或执行外部动作。
 
-> 项目已完成公开发布的资料准备，但尚未正式开源：维护者需要先选择许可证，才会创建公开仓库。
+> 这是一个公开的、本地优先项目。插件和工作台均为可选能力；向智能体或第三方分享任何数据前，请先阅读使用边界。
 
-## 不打扰原有工作的使用方式
+## 工作台 + 智能体，且不打扰原有工作
 
-将智能体指向 `plugins/clipcommerce-analyst`，然后调用 `$adaptive-work-improvement`，从 Observe（观察）模式开始。除非确有必要且你明确同意，Skill 不会要求你使用工作台、上传数据或重写原有流程。
+工作台只在它能增加价值时才使用：继续正常导入或记录团队已有的信息。当 agent 确实需要这些信息时，在“团队工作上下文”中主动生成协作数据包。数据包不含环境变量、本地文件路径、账户标识、客户级数据和演示快照，并会明确标出数据缺口，避免智能体猜测。
 
-安全提示词与获取方式见 [Skill 优先使用方式](docs/skill-first-adoption.md)。
+将智能体指向 `plugins/clipcommerce-analyst`，再将协作数据包和当前任务交给 `$adaptive-work-improvement`，从 Observe（观察）模式开始。除非确有必要且你明确同意，Skill 不会要求你使用工作台、上传数据或重写原有流程。
+
+协作数据交接见 [工作台与智能体协作闭环](docs/agent-collaboration-loop.zh-CN.md)，安全提示词与获取方式见 [Skill 使用方式](docs/skill-first-adoption.zh-CN.md)。
 
 ## 可选的本地伴侣能力
 
