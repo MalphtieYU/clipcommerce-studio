@@ -64,6 +64,18 @@ export type Timeline = {
   points: { second: number; value: number | null; isPeak: boolean; isDrop: boolean }[]
 }
 
+export type StrategyMeta = {
+  contentDirection?: string | null
+  coreSellingPoint?: string | null
+  hook?: string | null
+  creator?: string | null
+  creatorFreshness?: 'NEW' | 'REUSED' | 'UNKNOWN' | null
+  carrier?: string | null
+  deliveryGoal?: string | null
+  scenario?: string | null
+  scriptFamily?: string | null
+}
+
 export type Asset = {
   id: string
   assetCode: string
@@ -74,6 +86,7 @@ export type Asset = {
   durationSeconds: number | null
   sourceType: string
   contentType: string | null
+  strategyMeta: StrategyMeta | null
   status: string
   tags: string[]
   productId: string | null

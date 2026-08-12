@@ -1,8 +1,8 @@
 # ClipCommerce Studio
 
-**A local-first workspace for turning video-commerce exports into an explainable performance review.**
+**A local-first workspace for turning video-commerce exports into an explainable performance review. First-class workflow: Douyin / Ocean Engine creative experimentation.**
 
-[简体中文](README.zh-CN.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Metric dictionary](docs/metric-dictionary.md) · [Use boundaries](LEGAL_NOTICE.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[简体中文](README.zh-CN.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Douyin creative workflow](docs/douyin-creative-operations.md) · [Metric dictionary](docs/metric-dictionary.md) · [Use boundaries](LEGAL_NOTICE.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
 ClipCommerce Studio helps creators, e-commerce operators, and growth teams examine the path from video exposure to clicks, orders, revenue, and advertising return. It works from files you export yourself; it does **not** sign in to, scrape, or control any platform account.
 
@@ -13,7 +13,8 @@ ClipCommerce Studio helps creators, e-commerce operators, and growth teams exami
 - Imports CSV and XLSX files locally, with field mapping, preview, validation, confirmation, and batch rollback.
 - Analyzes creative-level video and commerce metrics: impressions, views, clicks, product clicks, carts, payments, orders, GMV/revenue, spend, CTR, CVR, CPM, CPC, CPA, ROI/ROAS.
 - Keeps platform, account, campaign, period, attribution, and source context so unlike metrics are not silently compared.
-- Supports Douyin, TikTok Shop, Tmall, JD, Shopify, Meta Ads, YouTube/Google Ads, Amazon, and safely normalized custom platforms.
+- Prioritizes Douyin / Ocean Engine creative review: content direction, one core selling point, hook, creator freshness, scenario, delivery goal, and script-family reuse are user-entered labels that can be reviewed against imported results.
+- Still accepts self-exported data from other platforms through the generic CSV/XLSX field model; it does not claim identical definitions across platforms.
 - Explains metrics in the interface and provides trends and review prompts only when you have imported data—no invented dashboard results.
 - Includes the `clipcommerce-analyst` Codex plugin to structure analysis of your own exported data.
 

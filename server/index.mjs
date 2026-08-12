@@ -84,10 +84,19 @@ const fieldAliases = {
   payments: ['payments', '支付数', '支付买家数', '支付订单数'],
   ctr: ['ctr', '点击率', 'CTR'],
   cvr: ['cvr', '转化率', 'CVR', '支付转化率'],
+  contentDirection: ['contentDirection', '内容方向'],
+  coreSellingPoint: ['coreSellingPoint', '核心卖点'],
+  hook: ['hook', '开头钩子', '钩子'],
+  creator: ['creator', '达人', '创作者', '出镜者'],
+  creatorFreshness: ['creatorFreshness', '达人新鲜度', '达人是否新'],
+  carrier: ['carrier', '素材载体', '载体'],
+  deliveryGoal: ['deliveryGoal', '投放目标', '推广目标'],
+  scenario: ['scenario', '场景'],
+  scriptFamily: ['scriptFamily', '脚本族', '脚本类型', '脚本方向'],
 };
 const typeFields = {
   'monthly-goals': ['name', 'category', 'periodStart', 'targetValue'],
-  'asset-metadata': ['assetCode', 'displayName', 'externalMaterialId', 'durationSeconds', 'sourceType', 'productName', 'channel'],
+  'asset-metadata': ['assetCode', 'displayName', 'externalMaterialId', 'durationSeconds', 'sourceType', 'productName', 'channel', 'contentDirection', 'coreSellingPoint', 'hook', 'creator', 'creatorFreshness', 'carrier', 'deliveryGoal', 'scenario', 'scriptFamily'],
   'asset-performance': ['assetCode', 'displayName', 'externalMaterialId', 'channel', 'accountId', 'campaignId', 'statisticsStart', 'statisticsEnd', 'orderCount', 'transactionAmount', 'spend', 'paidRoi', 'totalRoi', 'gmv', 'cpm', 'cpc', 'cpa', 'impressions', 'plays', 'clicks', 'productClicks', 'addToCart', 'payments', 'ctr', 'cvr'],
 };
 
@@ -146,6 +155,42 @@ const nullableNumber = (value) => {
   const number = Number(normalized);
   if (!Number.isFinite(number)) return Number.NaN;
   return number;
+};
+const strategyFreshnessAliases = new Map([
+  ['NEW', 'NEW'], ['新', 'NEW'], ['新达人', 'NEW'], ['首次', 'NEW'],
+  ['REUSED', 'REUSED'], ['复用', 'REUSED'], ['老达人', 'REUSED'], ['重复', 'REUSED'],
+  ['UNKNOWN', 'UNKNOWN'], ['未知', 'UNKNOWN'], ['待确认', 'UNKNOWN'],
+]);
+const strategyMetaPayload = (body) => {
+  const field = (key, label) => {
+    const text = nullableText(body[key]);
+    if (!text) return null;
+    if (text.length > 120) {
+      const error = new Error(`${label}不能超过 120 个字符`);
+      error.status = 400;
+      throw error;
+    }
+    return text;
+  };
+  const freshnessText = nullableText(body.creatorFreshness);
+  const creatorFreshness = freshnessText ? strategyFreshnessAliases.get(freshnessText.toUpperCase()) || strategyFreshnessAliases.get(freshnessText) : null;
+  if (freshnessText && !creatorFreshness) {
+    const error = new Error('达人新鲜度仅支持：新、复用、未知');
+    error.status = 400;
+    throw error;
+  }
+  const value = {
+    contentDirection: field('contentDirection', '内容方向'),
+    coreSellingPoint: field('coreSellingPoint', '核心卖点'),
+    hook: field('hook', '开头钩子'),
+    creator: field('creator', '达人/创作者'),
+    creatorFreshness,
+    carrier: field('carrier', '素材载体'),
+    deliveryGoal: field('deliveryGoal', '投放目标'),
+    scenario: field('scenario', '场景'),
+    scriptFamily: field('scriptFamily', '脚本族'),
+  };
+  return Object.values(value).some(Boolean) ? value : null;
 };
 const nullableDate = (value) => {
   if (!value) return null;
@@ -247,6 +292,7 @@ const assetPayload = (body) => {
     sourceType: sourceTypes.has(body.sourceType) ? body.sourceType : 'ORIGINAL',
     productId: nullableText(body.productId),
     contentType: nullableText(body.contentType),
+    strategyMeta: strategyMetaPayload(body),
     status: assetStatuses.has(body.status) ? body.status : 'DRAFT',
     tags: arrayValue(body.tags),
   };
@@ -596,6 +642,12 @@ const validateImport = async (dataType, inputRows) => {
       const durationSeconds = nullableNumber(row.durationSeconds);
       const sourceTypeText = String(row.sourceType || '').trim();
       const sourceType = sourceTypeAliases.get(sourceTypeText) || sourceTypeAliases.get(sourceTypeText.toUpperCase()) || null;
+      let strategyMeta = null;
+      try {
+        strategyMeta = strategyMetaPayload(row);
+      } catch (error) {
+        errors.push({ row: rowNumber, field: 'strategyMeta', message: error.message });
+      }
       if (!assetCode || !/^[A-Z0-9][A-Z0-9_-]{2,39}$/.test(assetCode)) errors.push({ row: rowNumber, field: 'assetCode', message: '素材编号格式无效' });
       if (!displayName) errors.push({ row: rowNumber, field: 'displayName', message: '素材名称不能为空' });
       if (Number.isNaN(durationSeconds) || (durationSeconds !== null && !Number.isInteger(durationSeconds))) errors.push({ row: rowNumber, field: 'durationSeconds', message: '时长必须为整数或空值' });
@@ -612,7 +664,7 @@ const validateImport = async (dataType, inputRows) => {
       }
       const channelInfo = nullableText(row.channel) ? normalizeChannel(row.channel) : null;
       if (nullableText(row.channel) && !channelInfo) errors.push({ row: rowNumber, field: 'channel', message: '渠道名称无效' });
-      Object.assign(row, { assetCode, displayName, externalMaterialId, durationSeconds, sourceType, productId, channelCode: channelInfo?.code || null, channelName: channelInfo?.name || null });
+      Object.assign(row, { assetCode, displayName, externalMaterialId, durationSeconds, sourceType, productId, strategyMeta, channelCode: channelInfo?.code || null, channelName: channelInfo?.name || null });
     }
 
     if (dataType === 'asset-performance') {
@@ -709,6 +761,7 @@ const importRows = async (body) => {
               durationSeconds: row.durationSeconds,
               sourceType: row.sourceType,
               productId: row.productId,
+              strategyMeta: row.strategyMeta,
               status: 'DRAFT',
               tags: ['本地导入'],
               channels: channel ? { create: [{ channel: { connect: { id: channel.id } } }] } : undefined,

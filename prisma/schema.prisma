@@ -291,6 +291,7 @@ model Asset {
   creatorId           String?
   productId           String?
   contentType         String?
+  strategyMeta        Json?
   status              AssetStatus  @default(DRAFT)
   firstLaunchStatus   FirstLaunchStatus @default(UNKNOWN)
   incrementalStatus   IncrementalStatus @default(UNKNOWN)

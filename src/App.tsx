@@ -9,15 +9,16 @@ import { EmptyState, EvidenceBadge, Metric, Notice, StatusBadge } from './compon
 import { localApi } from './lib/api'
 import { parseLocalImportFile, type ParsedLocalFile } from './lib/fileParser'
 import { platformMetricGlossary as metricGlossary, type MetricDefinition } from './data/metricGlossary'
-import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product, Snapshot } from './types'
+import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product, Snapshot, StrategyMeta } from './types'
 import './App.css'
 
-type Page = 'data-overview' | 'import' | 'creative-analysis' | 'comparison' | 'weekly-review' | 'benchmark' | 'metrics' | 'reports' | 'dashboard' | 'goals' | 'products' | 'assets' | 'analysis' | 'review' | 'report' | 'asset-detail' | 'asset-admin'
+type Page = 'data-overview' | 'import' | 'creative-analysis' | 'strategy' | 'comparison' | 'weekly-review' | 'benchmark' | 'metrics' | 'reports' | 'dashboard' | 'goals' | 'products' | 'assets' | 'analysis' | 'review' | 'report' | 'asset-detail' | 'asset-admin'
 type AppData = { products: Product[]; assets: Asset[]; goals: Goal[]; channels: Channel[]; imports: ImportBatch[] }
 
 const nav: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'data-overview', label: '数据总览', icon: LayoutDashboard },
   { id: 'import', label: '数据导入', icon: FileUp },
+  { id: 'strategy', label: '创作策略实验室', icon: ClipboardCheck },
   { id: 'creative-analysis', label: '单条素材分析', icon: LineChart },
   { id: 'comparison', label: '素材对比', icon: BarChart3 },
   { id: 'benchmark', label: '竞品对标', icon: BookOpen },
@@ -167,6 +168,7 @@ function App() {
           {page === 'products' && <Products rows={data.products} edit={setProductEditor} refresh={reload} notify={setToast} />}
           {page === 'assets' && <Assets rows={filteredAssets} channels={data.channels} navigate={navigate} edit={setAssetEditor} />}
           {page === 'import' && <ImportCenter batches={data.imports} refresh={reload} notify={setToast} />}
+          {page === 'strategy' && <StrategyLab assets={data.assets} navigate={navigate} edit={setAssetEditor} />}
           {page === 'creative-analysis' && <CreativeAnalysis assets={filteredAssets.filter(isUserAnalysisAsset)} navigate={navigate} />}
           {(page === 'comparison' || page === 'analysis') && <Analysis assets={data.assets} navigate={navigate} />}
           {page === 'review' && <Review assets={data.assets} />}
@@ -328,6 +330,66 @@ function Assets({ rows, channels, navigate, edit }: { rows: Asset[]; channels: C
   </>
 }
 
+const strategyBriefStorageKey = 'clipcommerce-private-creative-brief'
+const strategyOf = (asset: Asset): StrategyMeta => asset.strategyMeta || {}
+const compactAverage = (values: (number | null | undefined)[]) => {
+  const usable = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+  return usable.length ? usable.reduce((sum, value) => sum + value, 0) / usable.length : null
+}
+
+function StrategyLab({ assets, navigate, edit }: { assets: Asset[]; navigate: (page: Page, id?: string) => void; edit: (asset: Asset | null) => void }) {
+  const [brief, setBrief] = useState(() => window.localStorage.getItem(strategyBriefStorageKey) || '')
+  const labelled = assets.filter((asset) => Object.values(strategyOf(asset)).some(Boolean))
+  const focused = labelled.filter((asset) => Boolean(strategyOf(asset).coreSellingPoint))
+  const fresh = labelled.filter((asset) => strategyOf(asset).creatorFreshness === 'NEW')
+  const scriptFamilies = new Map<string, Asset[]>()
+  labelled.forEach((asset) => {
+    const family = strategyOf(asset).scriptFamily?.trim()
+    if (!family) return
+    scriptFamilies.set(family, [...(scriptFamilies.get(family) || []), asset])
+  })
+  const repeatedFamilies = [...scriptFamilies.entries()].filter(([, familyAssets]) => familyAssets.length > 1)
+  const directionRows = [...new Map(labelled.filter((asset) => strategyOf(asset).contentDirection).map((asset) => [strategyOf(asset).contentDirection!, true])).keys()].map((direction) => {
+    const group = labelled.filter((asset) => strategyOf(asset).contentDirection === direction)
+    const snapshots = group.flatMap((asset) => asset.snapshots.filter((snapshot) => !isDemoDataSource(snapshot.dataSource)))
+    return {
+      direction,
+      count: group.length,
+      spend: snapshots.reduce((sum, snapshot) => sum + (snapshot.spend || 0), 0),
+      ctr: compactAverage(snapshots.map((snapshot) => snapshot.ctr)),
+      cvr: compactAverage(snapshots.map((snapshot) => snapshot.cvr)),
+      roi: compactAverage(snapshots.map((snapshot) => snapshot.paidRoi)),
+    }
+  })
+  const saveBrief = (value: string) => {
+    setBrief(value)
+    window.localStorage.setItem(strategyBriefStorageKey, value)
+  }
+
+  return <>
+    <PageHeader title="创作策略实验室" subtitle="先记录策略标签，再用你导入的投放数据检验方向；不抓取、不代管任何抖音或巨量千川账号。" actions={<><button className="outline" onClick={() => navigate('import')}><FileUp size={17} />导入素材标签</button><button className="primary" onClick={() => edit(null)}><Plus size={17} />新建待测素材</button></>} />
+    <Notice>这是“创意实验台”，不是自动判定器。只有填写素材策略标签并导入真实表现后，才会出现方向覆盖、复用风险和数据汇总；各指标仍须在相同渠道、周期、归因和投放范围内比较。</Notice>
+    <div className="strategy-kpis">
+      <Metric label="已标注策略的素材" value={`${labelled.length} 条`} note="至少填写一项内容方向、卖点、钩子、达人、场景或脚本标签后计入。" />
+      <Metric label="核心卖点聚焦率" value={labelled.length ? `${Math.round(focused.length / labelled.length * 100)}%` : '—'} note="已标注素材中填写核心卖点的占比；不代表卖点已被验证有效。" />
+      <Metric label="新达人/新出镜占比" value={labelled.length ? `${Math.round(fresh.length / labelled.length * 100)}%` : '—'} note="基于你手工标注的新鲜度；用于提示素材来源复用。" />
+      <Metric label="重复脚本族" value={`${repeatedFamilies.length} 组`} note="同一脚本族被标注在两条及以上素材中；需人工审片。" />
+    </div>
+    <div className="strategy-layout">
+      <section className="panel strategy-priorities"><div className="section-head"><div><h2>本轮内容实验优先级</h2><small>可在下方本地私密策划说明中改成你的团队版本</small></div><EvidenceBadge source="运营复盘框架" status="待数据验证" /></div>
+        <ol><li><b>优先 1：</b>用新痛点钩子搭配新达人/新出镜素材，形成可区分的首轮测试。</li><li><b>优先 2：</b>测试原生场景的一镜到底、对话/剧情等不同内容载体，而非只改文案。</li><li><b>优先 3：</b>将沉浸式开箱、佩戴/使用演示、AI 画面作为小规模、可单独识别的实验变量。</li></ol>
+        <div className="strategy-gate"><h3>投放前检查</h3><span>1 个核心卖点</span><span>新钩子或新场景</span><span>标注达人新鲜度</span><span>明确脚本族</span><span>产品事实与表达合规</span></div>
+      </section>
+      <section className="panel private-brief"><div className="section-head"><div><h2>本地私密策划说明</h2><small>只保存在当前浏览器，不写入数据库、不随代码提交</small></div></div><textarea value={brief} onChange={(event) => saveBrief(event.target.value)} placeholder="例如：本周准备测试的内容方向、禁止复用的脚本、达人安排。请勿在公开仓库或 Issue 中粘贴公司数据。" /></section>
+    </div>
+    {!labelled.length ? <section className="panel empty-workspace"><EmptyState title="还没有策略标签数据" detail="在“新增素材”中填写策略字段，或在“数据导入 → 素材元数据”映射内容方向、核心卖点、钩子、达人新鲜度、场景和脚本族。完成后，这里才会基于真实记录显示复盘结果。" /><div className="empty-actions"><button className="primary" onClick={() => edit(null)}><Plus size={17} />录入第一条待测素材</button><button className="outline" onClick={() => navigate('import')}>查看导入字段</button></div></section> : <>
+      <section className="panel table-panel strategy-table"><div className="section-head"><div><h2>内容方向测试台账</h2><small>CTR、CVR、支付 ROI 为该方向下已导入快照的简单平均值；仅在口径一致时比较。</small></div><EvidenceBadge source="本地导入" status="未作因果推断" /></div><table><thead><tr><th>内容方向</th><th>已标注素材</th><th>导入消耗合计</th><th>平均 CTR</th><th>平均 CVR</th><th>平均支付 ROI</th></tr></thead><tbody>{directionRows.length ? directionRows.map((row) => <tr key={row.direction}><td><strong>{row.direction}</strong></td><td>{row.count}</td><td>{numberOrMissing(row.spend)}</td><td>{row.ctr === null ? '—' : `${(row.ctr * 100).toFixed(2)}%`}</td><td>{row.cvr === null ? '—' : `${(row.cvr * 100).toFixed(2)}%`}</td><td>{numberOrMissing(row.roi)}</td></tr>) : <tr><td colSpan={6} className="muted">已填写策略标签，但尚未填写“内容方向”。请补充后按方向汇总。</td></tr>}</tbody></table></section>
+      <div className="strategy-layout"><section className="panel"><div className="section-head"><div><h2>脚本复用提醒</h2><small>同名脚本族 ≥ 2 条才显示；请结合实际画面、钩子和投放周期人工判断。</small></div></div>{repeatedFamilies.length ? <div className="strategy-list">{repeatedFamilies.map(([family, familyAssets]) => <div key={family}><b>{family}</b><span>{familyAssets.length} 条素材</span>{familyAssets.map((asset) => <button className="link" key={asset.id} onClick={() => navigate('asset-detail', asset.id)}>{asset.assetCode}</button>)}</div>)}</div> : <EmptyState title="暂未识别到重复脚本族" detail="这只表示尚无重复标签，不能代替人工审片或判断内容同质化。" />}</section>
+        <section className="panel"><div className="section-head"><div><h2>待补充的策略字段</h2><small>从不完整记录开始补齐，才能得到可靠复盘。</small></div></div><div className="strategy-list">{labelled.filter((asset) => !strategyOf(asset).coreSellingPoint || !strategyOf(asset).hook || !strategyOf(asset).creatorFreshness || !strategyOf(asset).scriptFamily).slice(0, 8).map((asset) => <div key={asset.id}><b>{asset.displayName}</b><span>{[!strategyOf(asset).coreSellingPoint && '核心卖点', !strategyOf(asset).hook && '开头钩子', !strategyOf(asset).creatorFreshness && '达人新鲜度', !strategyOf(asset).scriptFamily && '脚本族'].filter(Boolean).join('、')}待补充</span><button className="link" onClick={() => edit(asset)}>补充标签</button></div>)}</div></section></div>
+    </>}
+  </>
+}
+
 function Goals({ rows, edit, refresh, notify }: { rows: Goal[]; edit: (goal: Goal | null) => void; refresh: () => Promise<void>; notify: (message: string) => void }) {
   const [category, setCategory] = useState('全部目标')
   const [selectedId, setSelectedId] = useState(rows[0]?.id || '')
@@ -369,7 +431,7 @@ const importFieldSets = {
     ['name', '目标名称'], ['category', '目标分类'], ['periodStart', '周期开始'], ['targetValue', '目标值'],
   ],
   'asset-metadata': [
-    ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['durationSeconds', '时长（秒）'], ['sourceType', '素材来源'], ['productName', '产品名称'], ['channel', '渠道'],
+    ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['durationSeconds', '时长（秒）'], ['sourceType', '素材来源'], ['productName', '产品名称'], ['channel', '渠道'], ['contentDirection', '内容方向'], ['coreSellingPoint', '核心卖点'], ['hook', '开头钩子'], ['creator', '达人/创作者'], ['creatorFreshness', '达人新鲜度（新/复用/未知）'], ['carrier', '素材载体'], ['deliveryGoal', '投放目标'], ['scenario', '场景'], ['scriptFamily', '脚本族'],
   ],
   'asset-performance': [
     ['assetCode', '素材编号'], ['displayName', '素材名称'], ['externalMaterialId', '外部素材 ID'], ['channel', '平台/渠道'], ['accountId', '广告账户 ID'], ['campaignId', '广告计划/系列'], ['statisticsStart', '数据周期开始'], ['statisticsEnd', '数据周期结束'], ['impressions', '展示数/展现量'], ['plays', '播放数/观看数'], ['clicks', '点击数'], ['productClicks', '商品点击数'], ['addToCart', '加购人数/数'], ['payments', '支付买家数/订单数'], ['orderCount', '订单数'], ['transactionAmount', '成交金额/销售额'], ['gmv', 'GMV/支付金额'], ['spend', '广告消耗'], ['ctr', '点击率（小数，如 0.025）'], ['cvr', '转化率（小数，如 0.08）'], ['cpm', '千次展示成本'], ['cpc', '平均点击成本'], ['cpa', '单次转化成本'], ['paidRoi', '支付 ROI'], ['totalRoi', 'ROAS/总 ROI'],
@@ -654,6 +716,9 @@ function AssetForm({ asset, products, channels, close, save }: { asset: Asset | 
         durationSeconds: form.get('durationSeconds') || null, contentType: form.get('contentType'),
         tags: String(form.get('tags') || '').split(/[,，]/).map((item) => item.trim()).filter(Boolean),
         localFileReference: form.get('localFileReference'), externalMaterialId: form.get('externalMaterialId'),
+        contentDirection: form.get('contentDirection'), coreSellingPoint: form.get('coreSellingPoint'), hook: form.get('hook'),
+        creator: form.get('creator'), creatorFreshness: form.get('creatorFreshness'), carrier: form.get('carrier'),
+        deliveryGoal: form.get('deliveryGoal'), scenario: form.get('scenario'), scriptFamily: form.get('scriptFamily'),
       })
     } catch (reason) { setError(reason instanceof Error ? reason.message : '保存失败') }
   }
@@ -665,6 +730,7 @@ function AssetForm({ asset, products, channels, close, save }: { asset: Asset | 
     <label>状态<select name="status" defaultValue={asset?.status || 'DRAFT'}><option value="DRAFT">草稿</option><option value="PENDING_EDIT">待剪辑</option><option value="PENDING_PUBLISH">待发布</option><option value="PUBLISHED">已发布</option><option value="PROMOTING">投流中</option><option value="OBSERVING">数据观察中</option><option value="OPTIMIZE">待优化</option><option value="REPLICABLE">可复刻</option><option value="INSUFFICIENT_DATA">数据不足</option></select></label><label>时长（秒）<input name="durationSeconds" type="number" min="0" max="86400" defaultValue={asset?.durationSeconds ?? ''} /></label>
     <label>内容类型<input name="contentType" defaultValue={asset?.contentType || ''} placeholder="场景表达" /></label><label>标签<input name="tags" defaultValue={asset?.tags.join('，') || ''} placeholder="卖点表达，匿名演示" /></label>
     <label>外部素材 ID<input name="externalMaterialId" defaultValue={asset?.externalMaterialId || ''} /></label><label>安全文件引用<input name="localFileReference" defaultValue={asset?.localFileReference || ''} placeholder="media/demo-001.mp4" /></label>
+    <fieldset className="span-2"><legend>创作策略标签（用于实验室复盘）</legend><div className="strategy-form-grid"><label>内容方向<input name="contentDirection" defaultValue={asset?.strategyMeta?.contentDirection || ''} placeholder="例如：场景痛点 / 剧情对话" /></label><label>核心卖点<input name="coreSellingPoint" defaultValue={asset?.strategyMeta?.coreSellingPoint || ''} placeholder="一条素材只填一个核心卖点" /></label><label>开头钩子<input name="hook" defaultValue={asset?.strategyMeta?.hook || ''} placeholder="前 3 秒的留人表达" /></label><label>达人/创作者<input name="creator" defaultValue={asset?.strategyMeta?.creator || ''} placeholder="内部代号即可" /></label><label>达人新鲜度<select name="creatorFreshness" defaultValue={asset?.strategyMeta?.creatorFreshness || ''}><option value="">未标注</option><option value="NEW">新</option><option value="REUSED">复用</option><option value="UNKNOWN">未知/待确认</option></select></label><label>素材载体<input name="carrier" defaultValue={asset?.strategyMeta?.carrier || ''} placeholder="短视频 / 商品卡 / 直播切片" /></label><label>投放目标<input name="deliveryGoal" defaultValue={asset?.strategyMeta?.deliveryGoal || ''} placeholder="推商品 / 推直播 / 测试" /></label><label>场景<input name="scenario" defaultValue={asset?.strategyMeta?.scenario || ''} placeholder="原生场景、通勤、开箱等" /></label><label className="span-2">脚本族<input name="scriptFamily" defaultValue={asset?.strategyMeta?.scriptFamily || ''} placeholder="用于识别重复迭代；同一复刻框架请填同一名称" /></label></div></fieldset>
     <p className="field-help span-2">仅保存工作区内相对引用；绝对路径、协议和 `..` 路径会被拒绝。当前不上传大型视频。</p>
     {error && <div className="form-error span-2">{error}</div>}<div className="modal-actions"><button type="button" className="outline" onClick={close}>取消</button><button className="primary">保存到本地数据库</button></div>
   </form></Modal>

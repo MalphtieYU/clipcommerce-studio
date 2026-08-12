@@ -2,6 +2,21 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased — Douyin creative experiment focus
+
+### Added / 新增
+
+- Added the Creative Strategy Lab for user-entered content direction, one core selling point, hook, creator freshness, scenario, delivery goal, and script-family review.
+- Added these optional fields to the material form and the asset-metadata CSV/XLSX import mapping, with server-side length and freshness validation.
+- Added a local-browser-only private planning note. It is not written to SQLite or the repository.
+- Added `strategyMeta` as a nullable Asset field and a forward-only SQLite migration; existing records remain unchanged.
+- Added a documented Douyin / Ocean Engine creative experiment workflow, metric boundaries, and public reference links.
+
+### Changed / 调整
+
+- Repositioned the public workspace: Douyin / Ocean Engine creative experimentation is first-class; other platforms remain supported through user-exported generic files.
+- Strategy aggregates exclude demo snapshots and state their comparison and causality limits.
+
 ## 0.1.0 — 2026-08-09
 
 ### Added
