@@ -2,6 +2,19 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased — Skill-first, non-disruptive adoption
+
+### Changed / 调整
+
+- Repositioned the public project around the optional `adaptive-work-improvement` skill. The local workspace remains a companion, not a required workflow or data-upload destination.
+- Added an explicit non-interference contract: the skill begins read-only, cannot alter existing agents, projects, prompts, tools, schedules, data, or external systems without current-task user authorization.
+- Defined user-approved learning as a small feedback loop rather than background collection, cross-user learning, or uncontrolled autonomous updates.
+
+### Added / 新增
+
+- Added a bilingual skill-first adoption guide with a safe copy-and-use prompt for existing agents.
+- Added the adaptive skill's working modes, response format, change-proposal contract, and optional local-companion boundary.
+
 ## Unreleased — Team-agent adaptation layer
 
 ### Added / 新增

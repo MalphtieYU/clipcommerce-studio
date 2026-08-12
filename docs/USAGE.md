@@ -47,9 +47,11 @@ Hover or select a metric help marker in the app for its definition, formula, dir
 
 Use trends as evidence of a change, not proof of its cause. Check audience, objective, placement, bid strategy, creative version, and the platform’s attribution definition before deciding what to scale.
 
-## 5. Use the optional Codex plugin
+## 5. Use the optional agent skills
 
-The plugin lives in `plugins/clipcommerce-analyst`. It is intended for a Codex environment where you explicitly install or point to this local plugin. Ask Codex to analyze an exported performance file and include the platform, reporting period, attribution window, and business goal. The skill will ask for missing context rather than pretend that a platform metric has a universal meaning.
+The plugin lives in `plugins/clipcommerce-analyst`. Its primary optional skill is `adaptive-work-improvement`: use it to improve an existing agent's work without replacing its workflow. It starts in observation mode, requires explicit permission for any change, and does not require the local workspace or an upload. The existing `video-commerce-analysis` skill remains available when you explicitly want to analyze an exported performance file.
+
+Read [skill-first adoption](skill-first-adoption.md) before installation. Keep the host agent's current configuration and add this plugin as an optional capability; do not overwrite its existing prompt or skills.
 
 Never send confidential exports to a remote assistant or third-party service unless your organization has approved that transfer.
 

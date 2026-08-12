@@ -1,0 +1,4 @@
+interface:
+  display_name: "Adaptive Work Improvement"
+  short_description: "Improve team work without disrupting existing agents."
+  default_prompt: "Use $adaptive-work-improvement to review my work context and give evidence-led suggestions without changing my existing project."

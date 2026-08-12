@@ -1,18 +1,18 @@
 {
   "name": "clipcommerce-analyst",
-  "version": "0.1.0",
-  "description": "Evidence-led video commerce analysis and adaptable team-context feedback for local CSV/XLSX exports.",
+  "version": "0.2.0",
+  "description": "Optional, non-disruptive team improvement skills with evidence-led video-commerce analysis.",
   "author": {
     "name": "ClipCommerce Studio"
   },
   "skills": "./skills/",
   "interface": {
     "displayName": "ClipCommerce Analyst",
-    "shortDescription": "Analyze exports and adapt recommendations to a team's work context.",
-    "longDescription": "Maps local video, advertising and commerce exports into transparent funnel analysis, then returns evidence-led, human-approved feedback adapted to a team's own goals and constraints.",
+    "shortDescription": "Improve team work without replacing existing agents or workflows.",
+    "longDescription": "Adds optional, evidence-led improvement and video-commerce analysis skills to existing agents. It starts read-only, preserves current projects and workflows, and treats all changes as human-approved suggestions.",
     "developerName": "ClipCommerce Studio",
     "category": "Productivity",
     "capabilities": [],
-    "defaultPrompt": "Analyze my local video-commerce export and team work context. First state what is known and missing, then identify evidence-backed strengths, gaps, and human-approved next actions."
+    "defaultPrompt": "Use $adaptive-work-improvement to understand my current work and suggest one safe improvement without changing my existing agent or project."
   }
 }

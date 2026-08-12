@@ -1,14 +1,20 @@
 # ClipCommerce Studio
 
-**把视频电商导出数据变成可解释复盘的本地优先工作台；当前第一优先级是抖音 / 巨量千川创意实验。**
+**一个可选、非侵入的 Skill 工具包：帮助现有智能体理解团队工作、基于证据提出改进，同时保护原有项目与流程。**
 
-[English](README.md) · [使用指南](docs/使用指南.md) · [User guide](docs/USAGE.md) · [团队智能体上下文](docs/team-agent-context.md) · [抖音创意实验工作流](docs/douyin-creative-operations.md) · [指标词典](docs/metric-dictionary.md) · [使用边界](LEGAL_NOTICE.md) · [安全说明](SECURITY.md) · [参与贡献](CONTRIBUTING.zh-CN.md)
+[English](README.md) · [Skill 优先使用方式](docs/skill-first-adoption.zh-CN.md) · [English guide](docs/skill-first-adoption.md) · [使用指南](docs/使用指南.md) · [User guide](docs/USAGE.md) · [团队智能体上下文](docs/team-agent-context.md) · [抖音创意实验工作流](docs/douyin-creative-operations.md) · [指标词典](docs/metric-dictionary.md) · [使用边界](LEGAL_NOTICE.md) · [安全说明](SECURITY.md) · [参与贡献](CONTRIBUTING.zh-CN.md)
 
-ClipCommerce Studio 面向短视频创作者、电商运营和增长团队，帮助你查看素材从曝光、观看、点击，到加购、订单、成交额和投放回报的完整链路。它只分析你主动导出的文件，**不会**登录、抓取或控制任何平台账户。
+ClipCommerce Studio 现在以 Skill 为主：公开交付物是一个可选插件，用来帮助现有智能体理解团队工作、发现证据与缺口，并提出小而可验证、需人工确认的改进建议。它**不会**替换智能体、改动既有项目、在后台收集信息或执行外部动作。本地工作台仅作为需要本地记录或数据分析的团队的可选伴侣。
 
 > 项目已完成公开发布的资料准备，但尚未正式开源：维护者需要先选择许可证，才会创建公开仓库。
 
-## 能做什么
+## 不打扰原有工作的使用方式
+
+将智能体指向 `plugins/clipcommerce-analyst`，然后调用 `$adaptive-work-improvement`，从 Observe（观察）模式开始。除非确有必要且你明确同意，Skill 不会要求你使用工作台、上传数据或重写原有流程。
+
+安全提示词与获取方式见 [Skill 优先使用方式](docs/skill-first-adoption.md)。
+
+## 可选的本地伴侣能力
 
 - 在本地导入 CSV/XLSX，完成字段映射、预览、校验、确认写入和整批撤销。
 - 从素材维度分析展示、播放/观看、点击、商品点击、加购、支付、订单、GMV/成交额、消耗、CTR、CVR、CPM、CPC、CPA、ROI/ROAS。
@@ -20,7 +26,7 @@ ClipCommerce Studio 面向短视频创作者、电商运营和增长团队，帮
 - 仍可通过通用 CSV/XLSX 字段模型导入其他平台的自有导出数据；不同平台口径不会被强行视为相同。
 - 各部门可以建立最小化的本地工作上下文，供各自智能体理解目标和约束；智能体的证据化反馈只作为待人工确认建议保存，不会自动改动流程。
 
-## 快速开始
+## 可选本地工作台
 
 环境要求：Node.js 22+ 与 npm。
 
@@ -41,7 +47,7 @@ npm.cmd run test
 npm.cmd run build
 ```
 
-关于文件导入、字段映射、指标解释、常见问题和可选 Codex 插件安装，请阅读完整的[使用指南](docs/使用指南.md)。
+关于文件导入、字段映射、指标解释、常见问题和可选本地工作台，请阅读完整的[使用指南](docs/使用指南.md)。
 
 ## 数据与隐私边界
 
