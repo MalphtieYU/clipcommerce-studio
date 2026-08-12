@@ -1,4 +1,4 @@
-import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product } from '../types'
+import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product, WorkContext, ContextFeedback } from '../types'
 
 type ApiOptions = Omit<RequestInit, 'body'> & { body?: unknown }
 
@@ -49,5 +49,13 @@ export const localApi = {
     parseXlsx: (body: unknown) => api<{ sourceType: 'xlsx'; headers: string[]; rows: Record<string, unknown>[]; warnings: string[] }>('/api/imports/parse-xlsx', { method: 'POST', body }),
     commit: (body: unknown) => api<{ ok: boolean; batchId: string; recordCount: number; warnings: ImportIssue[] }>('/api/imports', { method: 'POST', body }),
     undo: (id: string) => api<{ ok: boolean }>(`/api/imports/${id}/undo`, { method: 'POST' }),
+  },
+  workContexts: {
+    list: () => api<WorkContext[]>('/api/work-contexts'),
+    create: (body: unknown) => api<WorkContext>('/api/work-contexts', { method: 'POST', body }),
+    update: (id: string, body: unknown) => api<WorkContext>(`/api/work-contexts/${id}`, { method: 'PUT', body }),
+    archive: (id: string) => api<{ ok: boolean }>(`/api/work-contexts/${id}`, { method: 'DELETE' }),
+    agentBrief: (id: string) => api<Record<string, unknown>>(`/api/work-contexts/${id}/agent-brief`),
+    addFeedback: (id: string, body: unknown) => api<ContextFeedback>(`/api/work-contexts/${id}/feedback`, { method: 'POST', body }),
   },
 }

@@ -2,7 +2,7 @@
 
 **把视频电商导出数据变成可解释复盘的本地优先工作台；当前第一优先级是抖音 / 巨量千川创意实验。**
 
-[English](README.md) · [使用指南](docs/使用指南.md) · [User guide](docs/USAGE.md) · [抖音创意实验工作流](docs/douyin-creative-operations.md) · [指标词典](docs/metric-dictionary.md) · [使用边界](LEGAL_NOTICE.md) · [安全说明](SECURITY.md) · [参与贡献](CONTRIBUTING.zh-CN.md)
+[English](README.md) · [使用指南](docs/使用指南.md) · [User guide](docs/USAGE.md) · [团队智能体上下文](docs/team-agent-context.md) · [抖音创意实验工作流](docs/douyin-creative-operations.md) · [指标词典](docs/metric-dictionary.md) · [使用边界](LEGAL_NOTICE.md) · [安全说明](SECURITY.md) · [参与贡献](CONTRIBUTING.zh-CN.md)
 
 ClipCommerce Studio 面向短视频创作者、电商运营和增长团队，帮助你查看素材从曝光、观看、点击，到加购、订单、成交额和投放回报的完整链路。它只分析你主动导出的文件，**不会**登录、抓取或控制任何平台账户。
 
@@ -18,6 +18,7 @@ ClipCommerce Studio 面向短视频创作者、电商运营和增长团队，帮
 - 附带 `clipcommerce-analyst` Codex 插件，用统一的证据、口径和行动建议框架分析你自己的导出数据。
 - 当前优先支持抖音 / 巨量千川的创意实验复盘：内容方向、单一核心卖点、开头钩子、达人新鲜度、场景、投放目标和脚本族均由用户填写，再与真实导入表现对应查看。
 - 仍可通过通用 CSV/XLSX 字段模型导入其他平台的自有导出数据；不同平台口径不会被强行视为相同。
+- 各部门可以建立最小化的本地工作上下文，供各自智能体理解目标和约束；智能体的证据化反馈只作为待人工确认建议保存，不会自动改动流程。
 
 ## 快速开始
 

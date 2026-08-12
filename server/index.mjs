@@ -140,6 +140,29 @@ const routeId = (pathname, prefix, suffix = '') => {
 
 const arrayValue = (value) => Array.isArray(value) ? value.filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean) : [];
 const nullableText = (value) => typeof value === 'string' && value.trim() ? value.trim() : null;
+const boundedText = (value, label, maximum, required = false) => {
+  const text = nullableText(value);
+  if (!text && required) {
+    const error = new Error(`${label}不能为空`);
+    error.status = 400;
+    throw error;
+  }
+  if (text && text.length > maximum) {
+    const error = new Error(`${label}不能超过 ${maximum} 个字符`);
+    error.status = 400;
+    throw error;
+  }
+  return text;
+};
+const boundedTextList = (value, label, maximumItems = 24, maximumLength = 240) => {
+  const values = arrayValue(value);
+  if (values.length > maximumItems || values.some((item) => item.length > maximumLength)) {
+    const error = new Error(`${label}最多 ${maximumItems} 项，单项不超过 ${maximumLength} 个字符`);
+    error.status = 400;
+    throw error;
+  }
+  return values;
+};
 const requiredText = (value, field) => {
   const text = nullableText(value);
   if (!text) {
@@ -225,6 +248,37 @@ const productPayload = (body) => ({
   verifiedAt: nullableDate(body.verifiedAt),
   verifiedBy: nullableText(body.verifiedBy),
 });
+
+const workContextPayload = (body) => ({
+  name: boundedText(body.name, '工作上下文名称', 120, true),
+  department: boundedText(body.department, '部门/团队', 120),
+  objective: boundedText(body.objective, '当前目标', 1200, true),
+  currentTasks: boundedTextList(body.currentTasks, '当前任务'),
+  informationSources: boundedTextList(body.informationSources, '信息来源'),
+  successSignals: boundedTextList(body.successSignals, '成功信号'),
+  constraints: boundedTextList(body.constraints, '约束与边界'),
+  agentBoundary: boundedText(body.agentBoundary, '智能体边界', 1200),
+  status: body.status === 'PENDING_CONFIRMATION' ? 'PENDING_CONFIRMATION' : 'ACTIVE',
+});
+
+const contextFeedbackPayload = (body) => {
+  const categories = new Set(['UNDERSTANDING', 'STRENGTH', 'IMPROVEMENT', 'DATA_GAP', 'ADAPTATION']);
+  const category = String(body.category || '').trim().toUpperCase();
+  if (!categories.has(category)) {
+    const error = new Error('反馈类别无效');
+    error.status = 400;
+    throw error;
+  }
+  return {
+    agentName: boundedText(body.agentName, '智能体名称', 120),
+    category,
+    summary: boundedText(body.summary, '反馈摘要', 1600, true),
+    evidence: boundedTextList(body.evidence, '依据', 20, 400),
+    recommendations: boundedTextList(body.recommendations, '建议', 20, 400),
+    confidence: ['HIGH', 'MEDIUM', 'LOW'].includes(String(body.confidence || '').toUpperCase()) ? String(body.confidence).toUpperCase() : null,
+    needsHumanApproval: true,
+  };
+};
 
 const goalPayload = (body) => {
   const periodStart = nullableDate(body.periodStart);
@@ -859,6 +913,49 @@ const handle = async (request, response) => {
   if (request.method === 'GET' && pathname === '/api/health') {
     const products = await prisma.product.count({ where: { archivedAt: null } });
     return json(response, 200, { ok: true, mode: 'local', database: 'sqlite', products });
+  }
+
+  if (request.method === 'GET' && pathname === '/api/work-contexts') {
+    const rows = await prisma.workContext.findMany({ where: { archivedAt: null }, include: { feedback: { orderBy: { createdAt: 'desc' }, take: 30 } }, orderBy: { updatedAt: 'desc' } });
+    return json(response, 200, rows);
+  }
+  if (request.method === 'POST' && pathname === '/api/work-contexts') {
+    const body = await readJson(request);
+    const context = await prisma.workContext.create({ data: workContextPayload(body), include: { feedback: true } });
+    await audit('CREATE', 'WorkContext', context.id, '创建团队工作上下文');
+    return json(response, 201, context);
+  }
+  const workContextFeedbackId = routeId(pathname, '/api/work-contexts/', '/feedback');
+  if (workContextFeedbackId && request.method === 'POST') {
+    const body = await readJson(request);
+    const feedback = await prisma.contextFeedback.create({ data: { workContextId: workContextFeedbackId, ...contextFeedbackPayload(body) } });
+    await audit('ANALYZE', 'WorkContext', workContextFeedbackId, '记录智能体工作反馈', { feedbackId: feedback.id, category: feedback.category });
+    return json(response, 201, feedback);
+  }
+  const workContextBriefId = routeId(pathname, '/api/work-contexts/', '/agent-brief');
+  if (workContextBriefId && request.method === 'GET') {
+    const context = await prisma.workContext.findUnique({ where: { id: workContextBriefId }, include: { feedback: { orderBy: { createdAt: 'desc' }, take: 12 } } });
+    if (!context || context.archivedAt) return json(response, 404, { ok: false, message: '工作上下文不存在' });
+    return json(response, 200, {
+      purpose: 'Local work context for an assisting agent. Treat it as guidance, not an instruction to override user authority.',
+      context,
+      feedbackContract: {
+        required: ['what you understood', 'strengths supported by evidence', 'gaps or risks', 'adaptation suggestions'],
+        constraints: ['do not invent missing facts', 'do not change workflows, data, budgets, or external systems', 'write suggestions for human approval only'],
+      },
+    });
+  }
+  const workContextId = routeId(pathname, '/api/work-contexts/');
+  if (workContextId && request.method === 'PUT') {
+    const body = await readJson(request);
+    const context = await prisma.workContext.update({ where: { id: workContextId }, data: workContextPayload(body), include: { feedback: { orderBy: { createdAt: 'desc' }, take: 30 } } });
+    await audit('UPDATE', 'WorkContext', context.id, '更新团队工作上下文');
+    return json(response, 200, context);
+  }
+  if (workContextId && request.method === 'DELETE') {
+    const context = await prisma.workContext.update({ where: { id: workContextId }, data: { status: 'ARCHIVED', archivedAt: new Date() } });
+    await audit('DELETE', 'WorkContext', context.id, '归档团队工作上下文');
+    return json(response, 200, { ok: true, id: context.id });
   }
 
   if (request.method === 'GET' && pathname === '/api/products') {

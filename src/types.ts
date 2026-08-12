@@ -142,3 +142,33 @@ export type ImportIssue = {
   field: string
   message: string
 }
+
+export type ContextFeedback = {
+  id: string
+  workContextId: string
+  agentName: string | null
+  category: string
+  summary: string
+  evidence: string[]
+  recommendations: string[]
+  confidence: string | null
+  needsHumanApproval: boolean
+  createdAt: string
+}
+
+export type WorkContext = {
+  id: string
+  name: string
+  department: string | null
+  objective: string
+  currentTasks: string[]
+  informationSources: string[]
+  successSignals: string[]
+  constraints: string[]
+  agentBoundary: string | null
+  status: 'ACTIVE' | 'PENDING_CONFIRMATION' | 'ARCHIVED'
+  archivedAt: string | null
+  createdAt: string
+  updatedAt: string
+  feedback: ContextFeedback[]
+}

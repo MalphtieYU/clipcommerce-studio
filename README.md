@@ -2,7 +2,7 @@
 
 **A local-first workspace for turning video-commerce exports into an explainable performance review. First-class workflow: Douyin / Ocean Engine creative experimentation.**
 
-[简体中文](README.zh-CN.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Douyin creative workflow](docs/douyin-creative-operations.md) · [Metric dictionary](docs/metric-dictionary.md) · [Use boundaries](LEGAL_NOTICE.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
+[简体中文](README.zh-CN.md) · [User guide](docs/USAGE.md) · [使用指南](docs/使用指南.md) · [Team-agent contexts](docs/team-agent-context.md) · [Douyin creative workflow](docs/douyin-creative-operations.md) · [Metric dictionary](docs/metric-dictionary.md) · [Use boundaries](LEGAL_NOTICE.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
 ClipCommerce Studio helps creators, e-commerce operators, and growth teams examine the path from video exposure to clicks, orders, revenue, and advertising return. It works from files you export yourself; it does **not** sign in to, scrape, or control any platform account.
 
@@ -15,6 +15,7 @@ ClipCommerce Studio helps creators, e-commerce operators, and growth teams exami
 - Keeps platform, account, campaign, period, attribution, and source context so unlike metrics are not silently compared.
 - Prioritizes Douyin / Ocean Engine creative review: content direction, one core selling point, hook, creator freshness, scenario, delivery goal, and script-family reuse are user-entered labels that can be reviewed against imported results.
 - Still accepts self-exported data from other platforms through the generic CSV/XLSX field model; it does not claim identical definitions across platforms.
+- Lets each department create a minimal local work context for its own agents, then retain evidence-led feedback as human-approved suggestions rather than automated changes.
 - Explains metrics in the interface and provides trends and review prompts only when you have imported data—no invented dashboard results.
 - Includes the `clipcommerce-analyst` Codex plugin to structure analysis of your own exported data.
 

@@ -9,14 +9,15 @@ import { EmptyState, EvidenceBadge, Metric, Notice, StatusBadge } from './compon
 import { localApi } from './lib/api'
 import { parseLocalImportFile, type ParsedLocalFile } from './lib/fileParser'
 import { platformMetricGlossary as metricGlossary, type MetricDefinition } from './data/metricGlossary'
-import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product, Snapshot, StrategyMeta } from './types'
+import type { Asset, Channel, Goal, ImportBatch, ImportIssue, Product, Snapshot, StrategyMeta, WorkContext } from './types'
 import './App.css'
 
-type Page = 'data-overview' | 'import' | 'creative-analysis' | 'strategy' | 'comparison' | 'weekly-review' | 'benchmark' | 'metrics' | 'reports' | 'dashboard' | 'goals' | 'products' | 'assets' | 'analysis' | 'review' | 'report' | 'asset-detail' | 'asset-admin'
-type AppData = { products: Product[]; assets: Asset[]; goals: Goal[]; channels: Channel[]; imports: ImportBatch[] }
+type Page = 'data-overview' | 'import' | 'work-contexts' | 'creative-analysis' | 'strategy' | 'comparison' | 'weekly-review' | 'benchmark' | 'metrics' | 'reports' | 'dashboard' | 'goals' | 'products' | 'assets' | 'analysis' | 'review' | 'report' | 'asset-detail' | 'asset-admin'
+type AppData = { products: Product[]; assets: Asset[]; goals: Goal[]; channels: Channel[]; imports: ImportBatch[]; workContexts: WorkContext[] }
 
 const nav: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'data-overview', label: '数据总览', icon: LayoutDashboard },
+  { id: 'work-contexts', label: '团队工作上下文', icon: ClipboardCheck },
   { id: 'import', label: '数据导入', icon: FileUp },
   { id: 'strategy', label: '创作策略实验室', icon: ClipboardCheck },
   { id: 'creative-analysis', label: '单条素材分析', icon: LineChart },
@@ -26,7 +27,7 @@ const nav: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'reports', label: '历史报告', icon: Archive },
 ]
 const legacyPages = new Set<Page>(['dashboard', 'goals', 'products', 'assets', 'analysis', 'review', 'report', 'asset-detail', 'asset-admin'])
-const emptyData: AppData = { products: [], assets: [], goals: [], channels: [], imports: [] }
+const emptyData: AppData = { products: [], assets: [], goals: [], channels: [], imports: [], workContexts: [] }
 const contentSegments = [
   { label: '开头', start: 0, end: 3, tone: 'blue' },
   { label: '痛点', start: 3, end: 7, tone: 'cyan' },
@@ -78,18 +79,20 @@ function App() {
   const [productEditor, setProductEditor] = useState<Product | null | undefined>(undefined)
   const [assetEditor, setAssetEditor] = useState<Asset | null | undefined>(undefined)
   const [goalEditor, setGoalEditor] = useState<Goal | null | undefined>(undefined)
+  const [workContextEditor, setWorkContextEditor] = useState<WorkContext | null | undefined>(undefined)
 
   const reload = useCallback(async () => {
     setLoadError(null)
     try {
-      const [products, assets, goals, channels, imports] = await Promise.all([
+      const [products, assets, goals, channels, imports, workContexts] = await Promise.all([
         localApi.products.list(),
         localApi.assets.list(),
         localApi.goals.list(),
         localApi.channels(),
         localApi.imports.list(),
+        localApi.workContexts.list(),
       ])
-      setData({ products, assets, goals, channels, imports })
+      setData({ products, assets, goals, channels, imports, workContexts })
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : '无法连接本地数据服务')
     } finally {
@@ -148,6 +151,13 @@ function App() {
     setToast(goalEditor ? '目标已更新并写入 SQLite' : '目标已创建并写入 SQLite')
     await reload()
   }
+  const saveWorkContext = async (payload: unknown) => {
+    if (workContextEditor) await localApi.workContexts.update(workContextEditor.id, payload)
+    else await localApi.workContexts.create(payload)
+    setWorkContextEditor(undefined)
+    setToast(workContextEditor ? '团队工作上下文已更新' : '团队工作上下文已创建')
+    await reload()
+  }
 
   return <div className="app-shell">
     <aside className="sidebar">
@@ -164,6 +174,7 @@ function App() {
       <section className="workarea">
         {loading ? <LoadingState /> : loadError ? <ErrorState message={loadError} retry={reload} /> : <>
           {page === 'data-overview' && <DataOverview data={data} navigate={navigate} />}
+          {page === 'work-contexts' && <WorkContexts rows={data.workContexts} edit={setWorkContextEditor} refresh={reload} notify={setToast} />}
           {page === 'goals' && <Goals rows={data.goals} edit={setGoalEditor} refresh={reload} notify={setToast} />}
           {page === 'products' && <Products rows={data.products} edit={setProductEditor} refresh={reload} notify={setToast} />}
           {page === 'assets' && <Assets rows={filteredAssets} channels={data.channels} navigate={navigate} edit={setAssetEditor} />}
@@ -182,6 +193,7 @@ function App() {
     {productEditor !== undefined && <ProductForm product={productEditor} close={() => setProductEditor(undefined)} save={saveProduct} />}
     {assetEditor !== undefined && <AssetForm asset={assetEditor} products={data.products} channels={data.channels} close={() => setAssetEditor(undefined)} save={saveAsset} />}
     {goalEditor !== undefined && <GoalForm goal={goalEditor} products={data.products} channels={data.channels} close={() => setGoalEditor(undefined)} save={saveGoal} />}
+    {workContextEditor !== undefined && <WorkContextForm context={workContextEditor} close={() => setWorkContextEditor(undefined)} save={saveWorkContext} />}
     {toast && <div className="toast" role="status"><CheckCircle2 size={18} />{toast}</div>}
   </div>
 }
@@ -254,6 +266,62 @@ function DataOverview({ data, navigate }: { data: AppData; navigate: (page: Page
     </div>
     <section className="panel table-panel"><div className="section-head"><h2>已导入、可分析的素材</h2><small>数据周期与来源在进入后单独说明</small></div><AssetTable rows={filtered.slice(0, 6)} navigate={navigate} /></section>
   </>
+}
+
+const feedbackCategoryOptions = [
+  ['UNDERSTANDING', '已理解的工作'], ['STRENGTH', '做得好的地方'], ['IMPROVEMENT', '需要改进'], ['DATA_GAP', '信息/数据缺口'], ['ADAPTATION', '适配建议'],
+] as const
+
+const feedbackCategoryLabel = (value: string) => feedbackCategoryOptions.find(([code]) => code === value)?.[1] || value
+const listFromForm = (value: FormDataEntryValue | null) => String(value || '').split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
+
+function WorkContexts({ rows, edit, refresh, notify }: { rows: WorkContext[]; edit: (context: WorkContext | null) => void; refresh: () => Promise<void>; notify: (message: string) => void }) {
+  const [selectedId, setSelectedId] = useState(rows[0]?.id || '')
+  const [brief, setBrief] = useState<Record<string, unknown> | null>(null)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
+  const selected = rows.find((row) => row.id === selectedId) || rows[0]
+  const loadBrief = async () => {
+    if (!selected) return
+    setBrief(await localApi.workContexts.agentBrief(selected.id))
+    notify('已生成可交给智能体的本地上下文摘要')
+  }
+  const addFeedback = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!selected) return
+    const form = new FormData(event.currentTarget)
+    setFeedbackError(null)
+    try {
+      await localApi.workContexts.addFeedback(selected.id, {
+        agentName: form.get('agentName'), category: form.get('category'), summary: form.get('summary'),
+        evidence: listFromForm(form.get('evidence')), recommendations: listFromForm(form.get('recommendations')), confidence: form.get('confidence'),
+      })
+      event.currentTarget.reset()
+      notify('智能体反馈已保存，等待人工确认')
+      await refresh()
+    } catch (error) { setFeedbackError(error instanceof Error ? error.message : '保存反馈失败') }
+  }
+  const archive = async () => {
+    if (!selected || !window.confirm(`确认归档「${selected.name}」？历史反馈会保留在本地数据库中。`)) return
+    await localApi.workContexts.archive(selected.id)
+    notify('工作上下文已归档')
+    await refresh()
+  }
+  return <>
+    <PageHeader title="团队工作上下文" subtitle="用最小信息让各部门的智能体理解当前工作；它提供参考、发现缺口和提出建议，不替人自动改流程或执行外部动作。" actions={<button className="primary" onClick={() => edit(null)}><Plus size={17} />新建团队上下文</button>} />
+    <Notice>最少只需要填写团队名称和当前目标。任务、资料来源、成功标准、约束和智能体边界均为可选；未填写时，智能体必须把它视为“待补充”，而不是自行假设。</Notice>
+    {!rows.length ? <section className="panel empty-workspace"><EmptyState title="还没有团队工作上下文" detail="为渠道、内容、投放或其他部门建立一条轻量上下文。之后可将系统生成的摘要交给各自的智能体，并回收有证据的反馈。" /><div className="empty-actions"><button className="primary" onClick={() => edit(null)}>建立第一条上下文</button></div></section> : <div className="contexts-layout">
+      <section className="panel context-list">{rows.map((row) => <button key={row.id} className={row.id === selected?.id ? 'selected-context' : ''} onClick={() => { setSelectedId(row.id); setBrief(null) }}><strong>{row.name}</strong><span>{row.department || '未填写部门'} · {row.feedback.length} 条反馈</span><small>{row.objective}</small></button>)}</section>
+      {selected && <section className="context-detail"><section className="panel"><div className="section-head"><div><h2>{selected.name}</h2><small>{selected.department || '部门待填写'} · 最近更新 {formatDate(selected.updatedAt)}</small></div><div className="context-actions"><button className="outline" onClick={() => void loadBrief()}>生成智能体摘要</button><button className="icon-button" aria-label="编辑团队上下文" onClick={() => edit(selected)}><Pencil size={16} /></button></div></div><h3>当前目标</h3><p className="context-objective">{selected.objective}</p><ContextList title="当前任务" values={selected.currentTasks} empty="未限定任务，智能体应先澄清范围。" /><ContextList title="可用资料来源" values={selected.informationSources} empty="未填写；智能体不可假定已获取外部资料。" /><ContextList title="成功信号" values={selected.successSignals} empty="未填写；智能体应建议可衡量、可复核的信号。" /><ContextList title="约束与边界" values={selected.constraints} empty="未填写；仍受系统安全与用户授权边界约束。" /><div className="context-boundary"><b>对智能体的补充边界</b><p>{selected.agentBoundary || '仅作为参考上下文；不自动执行、修改或对外发送。'}</p></div><button className="danger-outline compact" onClick={() => void archive()}>归档此上下文</button></section>
+        {brief && <section className="panel agent-brief"><div className="section-head"><div><h2>给智能体的上下文摘要</h2><small>复制时请遵守团队的资料权限与隐私要求</small></div></div><pre>{JSON.stringify(brief, null, 2)}</pre></section>}
+        <section className="panel"><div className="section-head"><div><h2>智能体反馈记录</h2><small>所有反馈均为建议，必须人工确认后才可落地。</small></div></div>{selected.feedback.length ? <div className="feedback-list">{selected.feedback.map((feedback) => <article key={feedback.id}><div><StatusBadge status={feedbackCategoryLabel(feedback.category)} /><small>{feedback.agentName || '未署名智能体'} · {formatDateTime(feedback.createdAt)} · {feedback.confidence || '置信度未标注'}</small></div><p>{feedback.summary}</p>{feedback.evidence.length > 0 && <ContextList title="依据" values={feedback.evidence} empty="" />}{feedback.recommendations.length > 0 && <ContextList title="建议（待人工确认）" values={feedback.recommendations} empty="" />}</article>)}</div> : <EmptyState title="尚未收到反馈" detail="由智能体提交“理解、优势、改进、数据缺口或适配建议”，并写明依据。" />}</section>
+        <section className="panel"><div className="section-head"><div><h2>记录一条智能体反馈</h2><small>用于接收其他部门/工具的结构化回传，不触发自动执行。</small></div></div><form className="context-feedback-form" onSubmit={(event) => void addFeedback(event)}><label>智能体名称<input name="agentName" placeholder="例如：内容分析助手" /></label><label>反馈类别<select name="category" defaultValue="UNDERSTANDING">{feedbackCategoryOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>置信度<select name="confidence" defaultValue="MEDIUM"><option value="HIGH">高</option><option value="MEDIUM">中</option><option value="LOW">低</option></select></label><label className="span-3">反馈摘要<textarea name="summary" required placeholder="说明你理解到的情况、判断或风险。不要把推测写成事实。" /></label><label className="span-3">依据（每行一条）<textarea name="evidence" placeholder="来自哪份已授权资料、数据导入或用户说明；没有依据请明确写待补充。" /></label><label className="span-3">适配/改进建议（每行一条）<textarea name="recommendations" placeholder="写成需要人工确认的建议，不要声称已经改动流程。" /></label>{feedbackError && <div className="form-error span-3">{feedbackError}</div>}<button className="primary">保存待确认反馈</button></form></section>
+      </section>}
+    </div>}
+  </>
+}
+
+function ContextList({ title, values, empty }: { title: string; values: string[]; empty: string }) {
+  return <div className="context-list-block"><h3>{title}</h3>{values.length ? <ul>{values.map((value, index) => <li key={`${value}-${index}`}>{value}</li>)}</ul> : empty ? <p className="muted">{empty}</p> : null}</div>
 }
 
 function CreativeAnalysis({ assets, navigate }: { assets: Asset[]; navigate: (page: Page, id?: string) => void }) {
@@ -761,6 +829,34 @@ function GoalForm({ goal, products, channels, close, save }: { goal: Goal | null
     <label>产品<select name="productId" defaultValue={goal?.productId || ''}><option value="">全部/未关联</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label><label>渠道<select name="channelId" defaultValue={goal?.channelId || ''}><option value="">全部/未关联</option>{channels.map((channel) => <option key={channel.id} value={channel.id}>{channel.name}</option>)}</select></label>
     <label className="span-2">数据来源<input name="source" defaultValue={goal?.source || '本地手动录入'} required /></label><label className="span-2">备注<textarea name="notes" defaultValue="" /></label>
     {error && <div className="form-error span-2">{error}</div>}<div className="modal-actions"><button type="button" className="outline" onClick={close}>取消</button><button className="primary">保存到本地数据库</button></div>
+  </form></Modal>
+}
+
+function WorkContextForm({ context, close, save }: { context: WorkContext | null; close: () => void; save: (payload: unknown) => Promise<void> }) {
+  const [error, setError] = useState<string | null>(null)
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    try {
+      await save({
+        name: form.get('name'), department: form.get('department'), objective: form.get('objective'),
+        currentTasks: listFromForm(form.get('currentTasks')), informationSources: listFromForm(form.get('informationSources')),
+        successSignals: listFromForm(form.get('successSignals')), constraints: listFromForm(form.get('constraints')),
+        agentBoundary: form.get('agentBoundary'), status: form.get('status'),
+      })
+    } catch (reason) { setError(reason instanceof Error ? reason.message : '保存失败') }
+  }
+  return <Modal title={context ? '编辑团队工作上下文' : '新建团队工作上下文'} close={close}><form className="form-grid" onSubmit={(event) => void submit(event)}>
+    <label>上下文名称<input name="name" defaultValue={context?.name || ''} required placeholder="例如：渠道内容增长" /></label><label>部门/团队<input name="department" defaultValue={context?.department || ''} placeholder="可留空" /></label>
+    <label className="span-2">当前目标<textarea name="objective" defaultValue={context?.objective || ''} required placeholder="用一段话说明当前阶段真正要解决的问题与期望结果。" /></label>
+    <label className="span-2">当前任务（每行一条）<textarea name="currentTasks" defaultValue={context?.currentTasks.join('\n') || ''} placeholder="例如：复盘已投素材；制定下周测试计划" /></label>
+    <label className="span-2">可用资料来源（每行一条）<textarea name="informationSources" defaultValue={context?.informationSources.join('\n') || ''} placeholder="例如：已授权数据导出、已确认的会议纪要。请不要写密钥或账户密码。" /></label>
+    <label className="span-2">成功信号（每行一条）<textarea name="successSignals" defaultValue={context?.successSignals.join('\n') || ''} placeholder="例如：可比较的数据完整率、完成的方向测试数；由团队自己定义。" /></label>
+    <label className="span-2">约束与边界（每行一条）<textarea name="constraints" defaultValue={context?.constraints.join('\n') || ''} placeholder="例如：不得对外发送资料；建议必须人工确认；不接触用户个人数据。" /></label>
+    <label className="span-2">给智能体的补充边界<textarea name="agentBoundary" defaultValue={context?.agentBoundary || ''} placeholder="说明它可以参考什么、必须询问什么、不能自动做什么。" /></label>
+    <label>状态<select name="status" defaultValue={context?.status || 'ACTIVE'}><option value="ACTIVE">启用</option><option value="PENDING_CONFIRMATION">待确认</option></select></label>
+    <p className="field-help">这份信息会保存在本地 SQLite，供你授权的智能体读取摘要；避免录入密码、密钥、个人信息或不应共享的原始数据。</p>
+    {error && <div className="form-error span-2">{error}</div>}<div className="modal-actions"><button type="button" className="outline" onClick={close}>取消</button><button className="primary">保存上下文</button></div>
   </form></Modal>
 }
 

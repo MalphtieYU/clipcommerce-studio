@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased — Team-agent adaptation layer
+
+### Added / 新增
+
+- Added local team work contexts with optional tasks, authorized information sources, success signals, constraints, and agent boundaries.
+- Added a local agent-brief endpoint and structured feedback records for understanding, strengths, improvements, data gaps, and adaptation ideas.
+- Added explicit human-approval defaults: feedback cannot automatically alter workflows, data, budgets, platform settings, or external systems.
+- Updated the bundled analyst skill and bilingual documentation so department agents use work context as guidance, preserve flexibility, identify unknowns, and return evidence-led feedback.
+
 ## Unreleased — Douyin creative experiment focus
 
 ### Added / 新增

@@ -521,3 +521,35 @@ model AuditLog {
   metadata     Json?
   createdAt    DateTime    @default(now())
 }
+
+model WorkContext {
+  id                 String          @id @default(cuid())
+  name               String
+  department         String?
+  objective          String
+  currentTasks       Json?
+  informationSources Json?
+  successSignals     Json?
+  constraints        Json?
+  agentBoundary      String?
+  status             RecordStatus    @default(ACTIVE)
+  archivedAt         DateTime?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  feedback           ContextFeedback[]
+}
+
+model ContextFeedback {
+  id                  String      @id @default(cuid())
+  workContextId       String
+  agentName           String?
+  category            String
+  summary             String
+  evidence            Json?
+  recommendations     Json?
+  confidence          String?
+  needsHumanApproval  Boolean     @default(true)
+  createdAt           DateTime    @default(now())
+  workContext         WorkContext @relation(fields: [workContextId], references: [id], onDelete: Cascade)
+  @@index([workContextId, createdAt])
+}
